@@ -1,0 +1,27 @@
+# GameFlow LB — Podman Compose stack
+# Run:  podman compose up --build
+# Then: open http://localhost:3000
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../Containerfile.backend
+    container_name: gameflow-backend
+    ports:
+      - "8080:8080"   # REST + WebSocket
+      - "1099:1099"   # RMI registry
+    environment:
+      - JAVA_RMI_SERVER_HOSTNAME=127.0.0.1
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../Containerfile.frontend
+    container_name: gameflow-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

@@ -1,0 +1,29 @@
+# Java / Maven
+backend/target/
+target/
+*.class
+*.jar
+*.war
+.m2repo/
+backend/.m2repo/
+**/.m2repo/
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Env
+.env
+.env.local
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
