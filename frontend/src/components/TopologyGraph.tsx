@@ -77,7 +77,13 @@ const ServerNodeView = memo(function ServerNodeView({
   const { servers } = useSim();
   const s = servers[data.serverId];
   if (!s) return null;
-  const m = s.metrics;
+  // Metrics can be momentarily absent during fault transitions / re-seeds;
+  // render a placeholder instead of crashing the whole graph.
+  const m = s.metrics ?? {
+    cpu: 0, gpu: 0, ram: 0, vram: 0, encoding: 0,
+    networkMbps: 0, latencyMs: 0, jitterMs: 0, packetLoss: 0,
+    sessions: 0, requestsPerSec: 0,
+  };
   const bar = (v: number) => {
     const c = v >= 90 ? '#EF4444' : v >= 75 ? '#F59E0B' : '#4F8CFF';
     return (

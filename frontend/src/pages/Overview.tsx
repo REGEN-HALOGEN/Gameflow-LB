@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useSim } from '../state/sim';
 import { fmt, fmtInt, fmtMs, fmtPct } from '../lib/format';
 import TopologyGraph from '../components/TopologyGraph';
+import { GraphErrorBoundary } from '../components/GraphErrorBoundary';
 import { EventRows } from '../components/EventTail';
 import { EmptyState, SectionTitle, Skeleton, StatBlock } from '../components/ui';
 
@@ -70,7 +71,9 @@ export default function Overview() {
           Live infrastructure
         </SectionTitle>
         <div className="h-[340px] border border-line rounded-[6px] overflow-hidden bg-ink">
-          <TopologyGraph compact />
+          <GraphErrorBoundary>
+            <TopologyGraph compact />
+          </GraphErrorBoundary>
         </div>
       </section>
 

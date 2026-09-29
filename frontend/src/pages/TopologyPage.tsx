@@ -1,4 +1,5 @@
 import TopologyGraph from '../components/TopologyGraph';
+import { GraphErrorBoundary } from '../components/GraphErrorBoundary';
 import { useSim } from '../state/sim';
 import { BackendDown } from './Overview';
 import { Skeleton } from '../components/ui';
@@ -32,7 +33,9 @@ export default function TopologyPage() {
           <BackendDown />
         ) : (
           <div className="h-full border border-line rounded-[6px] overflow-hidden bg-ink">
-            <TopologyGraph />
+            <GraphErrorBoundary>
+              <TopologyGraph />
+            </GraphErrorBoundary>
           </div>
         )}
       </div>
