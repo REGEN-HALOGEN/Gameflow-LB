@@ -122,6 +122,7 @@ Common `type` values: `SESSION_CREATED`, `SESSION_TERMINATED`, `SESSION_MIGRATIN
 `SESSION_MIGRATED`, `ROUTING_DECISION`, `GPU_THRESHOLD`, `HEALTH_CHECK_FAILED`,
 `SERVER_STATE_CHANGED`, `CIRCUIT_OPEN`, `CIRCUIT_HALF_OPEN`, `CIRCUIT_CLOSED`,
 `FAULT_INJECTED`, `FAULT_CLEARED`, `SCENARIO_STARTED`, `SCENARIO_STOPPED`,
+`SCENARIO_COMPLETED`, `SCENARIO_CREATED`, `SCENARIO_DELETED`, `SCENARIO_PHASE`,
 `SIMULATION_STARTED`, `SIMULATION_PAUSED`, `SIMULATION_RESUMED`, `SIMULATION_RESET`,
 `NO_ROUTING_CANDIDATES`, `STRATEGY_CHANGED`.
 
@@ -146,9 +147,24 @@ Common `type` values: `SESSION_CREATED`, `SESSION_TERMINATED`, `SESSION_MIGRATIN
   "name": "GPU Saturation",
   "description": "Ramps GS-MUM-02 GPU 70% → 97%. Routing should shed load.",
   "active": false,
-  "targetServerId": "GS-MUM-02"
+  "targetServerId": "GS-MUM-02",
+  "custom": false
 }
 ```
+`custom: true` marks user-defined scenarios (created via `POST /api/scenarios/custom`).
+
+### Custom scenario step
+```json
+{ "type": "WAIT", "seconds": 10 }
+{ "type": "SET_TRAFFIC", "targetSessions": 120 }
+{ "type": "FAULT", "serverId": "GS-MUM-02", "faultType": "GPU_OVERLOAD" }
+{ "type": "RECOVER", "serverId": "GS-MUM-02" }
+{ "type": "STRATEGY", "strategy": "LEAST_SESSIONS" }
+```
+Steps execute in order on a wall-clock timeline: each step's action fires on
+entry, then the timeline dwells — `WAIT` steps dwell `seconds`, action steps
+dwell 3s so their effects are visible. The scenario stops itself (event
+`SCENARIO_COMPLETED`) after the last step.
 
 ### MetricPoint (history)
 ```json
@@ -176,6 +192,9 @@ Common `type` values: `SESSION_CREATED`, `SESSION_TERMINATED`, `SESSION_MIGRATIN
 | GET | `/api/scenarios` | — | scenario descriptor `[]` |
 | POST | `/api/scenarios/{id}/start` | — | `{ "started": true, "scenarioId": "..." }` |
 | POST | `/api/scenarios/{id}/stop` | — | `{ "stopped": true }` |
+| POST | `/api/scenarios/custom` | `{ "name": "...", "description": "...", "steps": [custom scenario steps] }` (1..20 steps, validated) | scenario descriptor (`custom: true`) |
+| DELETE | `/api/scenarios/custom/{id}` | — | `{ "deleted": true, "scenarioId": "..." }` (stops it first if running) |
+| DELETE | `/api/sessions/{id}` | — | `{ "terminated": true, "sessionId": "..." }` (404 if unknown) |
 | POST | `/api/simulation/start` | — | `{ "state": "RUNNING" }` |
 | POST | `/api/simulation/pause` | — | `{ "state": "PAUSED" }` |
 | POST | `/api/simulation/resume` | — | `{ "state": "RUNNING" }` |
