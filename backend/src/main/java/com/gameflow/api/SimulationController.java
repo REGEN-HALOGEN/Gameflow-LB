@@ -49,6 +49,16 @@ public class SimulationController {
         return Map.of("speed", simulation.getSpeed());
     }
 
+    /** Interactive traffic dial: target concurrent player sessions (0..1000). */
+    @PutMapping("/traffic")
+    public Map<String, Integer> traffic(@RequestBody TrafficRequest body) {
+        simulation.setTrafficTarget(body.targetSessions());
+        return Map.of("targetSessions", simulation.getTrafficTarget());
+    }
+
     public record SpeedRequest(double speed) {
+    }
+
+    public record TrafficRequest(int targetSessions) {
     }
 }

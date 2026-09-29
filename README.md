@@ -170,6 +170,23 @@ Available on the Demo Scenarios page (all scripted, deterministic):
 Manual fault injection per server is also available: GPU overload, latency
 spike, packet loss, RMI failure, crash, recover.
 
+### Custom scenarios
+
+The Scenarios page also has a **custom scenario builder**: compose your own
+timeline from ordered steps and run it like any demo scenario.
+
+Step types: `WAIT` (seconds) · `SET_TRAFFIC` (target sessions) ·
+`FAULT` (server + fault type) · `RECOVER` (server) · `STRATEGY` (routing
+strategy). Steps run in order on a wall-clock timeline — each step's action
+fires on entry, action steps dwell 3s so their effects are visible, `WAIT`
+steps pace the timeline, and the scenario stops itself (event
+`SCENARIO_COMPLETED`) after the last step. Custom scenarios are listed with a
+`CUSTOM` badge and can be deleted; stopping one clears the faults it injected.
+
+Example — failover drill: `SET_TRAFFIC 120` → `WAIT 10s` →
+`FAULT CRASH on GS-MUM-02` → `WAIT 30s` → `RECOVER GS-MUM-02` →
+`STRATEGY LEAST_SESSIONS`.
+
 ## How to run locally
 
 Prerequisites: Java 21+, Maven, Node 20+.
@@ -187,15 +204,10 @@ npm run dev
 
 Open http://localhost:5173 and press **Start Simulation**.
 
-### Run with Podman
-
-```bash
-podman compose up --build
-# Frontend: http://localhost:3000  (proxies /api and /ws to the backend)
-# Backend:  http://localhost:8080
-```
-
-`docker compose` works identically — the Containerfiles are Docker-compatible.
+That's the whole deployment: the Spring Boot backend serves REST + WebSocket
+on `:8080`, the game-server nodes live in the same JVM and talk to the load
+balancer over **Java RMI** (registry on `:1099`), and the Vite frontend
+proxies `/api` and `/ws` to the backend. No containers, no cloud services.
 
 ## API overview
 
@@ -223,11 +235,11 @@ WebSocket `ws://localhost:8080/ws/events` streams: `METRIC_UPDATE`,
 
 ## Screenshots
 
-> Screenshots are not bundled with this repo — run the stack locally
-> (`podman compose up --build`, then open http://localhost:3000) to see the
-> live console: overview dashboard, topology with routing animation, routing
-> decision inspector, failover (server failure → circuit open → migration),
-> and metrics charts.
+> Screenshots are not bundled with this repo — run it locally
+> (`cd backend && mvn spring-boot:run`, `cd frontend && npm run dev`,
+> open http://localhost:5173) to see the live console: overview dashboard,
+> animated topology with packet flow, routing decision inspector, failover
+> (server failure → circuit open → migration), and metrics charts.
 
 ## Tests
 
@@ -263,8 +275,7 @@ gameflow-lb/
 │       ├── components/      # Topology, drawer, inspector, charts…
 │       └── state/           # WS-driven global store
 ├── CONTRACT.md              # API + WebSocket contract (both sides conform)
-├── Containerfile.backend / Containerfile.frontend
-└── compose.yaml
+└── start.sh                 # one-command local startup (backend + frontend)
 ```
 
 ## Future improvements

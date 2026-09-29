@@ -1,9 +1,29 @@
 import { Link } from 'react-router-dom';
 import { useSim } from '../state/sim';
 import { fmt, fmtInt, fmtMs, fmtPct } from '../lib/format';
+import { useAnimatedNumber } from '../lib/useAnimatedNumber';
 import TopologyGraph from '../components/TopologyGraph';
+import { GraphErrorBoundary } from '../components/GraphErrorBoundary';
+import ChaosBar from '../components/ChaosBar';
 import { EventRows } from '../components/EventTail';
 import { EmptyState, SectionTitle, Skeleton, StatBlock } from '../components/ui';
+
+function AnimatedStat({
+  label, value, unit, color, tip, decimals = 0,
+}: {
+  label: string; value: number; unit?: string; color?: string; tip?: string; decimals?: number;
+}) {
+  const v = useAnimatedNumber(value);
+  return (
+    <StatBlock
+      label={label}
+      value={decimals > 0 ? v.toFixed(decimals) : fmtInt(v)}
+      unit={unit}
+      color={color}
+      tip={tip}
+    />
+  );
+}
 
 export default function Overview() {
   const { ready, backendUp, totals, decisions, events, inspectDecision, simState } = useSim();
@@ -28,30 +48,36 @@ export default function Overview() {
 
   return (
     <div className="p-4 space-y-4">
+      {/* interactive playground: transport, traffic dial, chaos injection */}
+      <ChaosBar />
+
       {/* compact stat strip */}
       <section aria-label="System statistics">
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3 border-b border-line pb-3">
-          <StatBlock label="Active sessions" value={fmtInt(totals.activeSessions)} />
-          <StatBlock label="Requests / sec" value={fmt(totals.requestsPerSec)} />
-          <StatBlock
+          <AnimatedStat label="Active sessions" value={totals.activeSessions} />
+          <AnimatedStat label="Requests / sec" value={totals.requestsPerSec} decimals={1} />
+          <AnimatedStat
             label="Avg latency"
-            value={fmt(totals.avgLatencyMs)}
+            value={totals.avgLatencyMs}
             unit="ms"
+            decimals={1}
             color={totals.avgLatencyMs > 100 ? '#EF4444' : totals.avgLatencyMs > 50 ? '#F59E0B' : undefined}
             tip="Session-weighted mean round-trip latency across healthy servers."
           />
-          <StatBlock label="Healthy servers" value={fmtInt(totals.healthyServers)} />
-          <StatBlock
+          <AnimatedStat label="Healthy servers" value={totals.healthyServers} />
+          <AnimatedStat
             label="Avg GPU"
-            value={fmt(totals.avgGpu)}
+            value={totals.avgGpu}
             unit="%"
+            decimals={1}
             color={totals.avgGpu > 90 ? '#EF4444' : totals.avgGpu > 75 ? '#F59E0B' : undefined}
             tip="Mean GPU utilization across all game servers."
           />
-          <StatBlock
+          <AnimatedStat
             label="Packet loss"
-            value={fmt(totals.packetLoss, 2)}
+            value={totals.packetLoss}
             unit="%"
+            decimals={2}
             color={totals.packetLoss > 5 ? '#EF4444' : totals.packetLoss > 1 ? '#F59E0B' : undefined}
             tip="Session-weighted mean packet loss. Above 5% a server is excluded from routing."
           />
@@ -70,7 +96,9 @@ export default function Overview() {
           Live infrastructure
         </SectionTitle>
         <div className="h-[340px] border border-line rounded-[6px] overflow-hidden bg-ink">
-          <TopologyGraph compact />
+          <GraphErrorBoundary>
+            <TopologyGraph compact />
+          </GraphErrorBoundary>
         </div>
       </section>
 

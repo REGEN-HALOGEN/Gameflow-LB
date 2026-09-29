@@ -14,7 +14,8 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { useSim } from '../state/sim';
 import { fmtInt } from '../lib/format';
-import { SERVER_STATE_COLOR, StateBadge } from './ui';
+import { SERVER_STATE_COLOR, StateBadge, RMI_COLOR } from './ui';
+import PacketFlow from './PacketFlow';
 import type { ServerNode as ServerNodeT } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -70,9 +71,20 @@ function RouterNode({ data }: NodeProps<{ strategy: string }>) {
 
 const ServerNodeView = memo(function ServerNodeView({
   data,
-}: NodeProps<{ server: ServerNodeT }>) {
-  const s = data.server;
-  const m = s.metrics;
+}: NodeProps<{ serverId: string }>) {
+  // Read the live server from context instead of taking a snapshot in `data`:
+  // that keeps the node's data reference stable across metric flushes so
+  // React Flow doesn't tear down and rebuild the graph at 2Hz.
+  const { servers } = useSim();
+  const s = servers[data.serverId];
+  if (!s) return null;
+  // Metrics can be momentarily absent during fault transitions / re-seeds;
+  // render a placeholder instead of crashing the whole graph.
+  const m = s.metrics ?? {
+    cpu: 0, gpu: 0, ram: 0, vram: 0, encoding: 0,
+    networkMbps: 0, latencyMs: 0, jitterMs: 0, packetLoss: 0,
+    sessions: 0, requestsPerSec: 0,
+  };
   const bar = (v: number) => {
     const c = v >= 90 ? '#EF4444' : v >= 75 ? '#F59E0B' : '#4F8CFF';
     return (
@@ -98,8 +110,16 @@ const ServerNodeView = memo(function ServerNodeView({
         <span className="font-mono text-[11px] font-bold text-zinc-100">{s.id}</span>
         <StateBadge color={SERVER_STATE_COLOR[s.state]} label={s.state} />
       </div>
-      <div className="font-mono text-[10px] text-zinc-500 mt-0.5">
-        {s.city} · {s.region}
+      <div className="font-mono text-[10px] text-zinc-500 mt-0.5 flex items-center justify-between">
+        <span>{s.city} · {s.region}</span>
+        {/* RMI link status: the remoting layer this server is reached over */}
+        <span className="inline-flex items-center gap-1" title={`RMI ${s.rmiStatus}`}>
+          <span
+            className="inline-block h-[6px] w-[6px] rounded-full"
+            style={{ background: RMI_COLOR[s.rmiStatus], boxShadow: `0 0 6px ${RMI_COLOR[s.rmiStatus]}` }}
+          />
+          <span className="text-[9px] text-zinc-600">RMI</span>
+        </span>
       </div>
       <div className="mt-1.5 space-y-1">
         <div className="flex items-center gap-1.5">
@@ -153,7 +173,10 @@ function TrafficEdge({
   });
   const [hover, setHover] = React.useState(false);
   const active = !!data?.active;
-  const s: ServerNodeT | undefined = data?.server;
+  // Live server for the hover tooltip — read from context so the edge's `data`
+  // stays a stable { serverId, active } reference across metric flushes.
+  const { servers } = useSim();
+  const s: ServerNodeT | undefined = data?.serverId ? servers[data.serverId] : undefined;
   return (
     <>
       <path
@@ -204,7 +227,7 @@ const edgeTypes = { traffic: TrafficEdge };
 // ---------------------------------------------------------------------------
 
 export default function TopologyGraph({ compact }: { compact?: boolean }) {
-  const { servers, serverIds, totals, strategy, activeRoute, openDrawer, simState } = useSim();
+  const { serverIds, totals, strategy, activeRoute, openDrawer, simState } = useSim();
 
   const nodes: Node[] = useMemo(() => {
     const list: Node[] = [
@@ -228,11 +251,15 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
         id: 'srv-' + id,
         type: 'server',
         position: { x: xs[i % xs.length], y: 380 },
-        data: { server: servers[id] },
+        // Stable data: the node component reads the live server from context.
+        data: { serverId: id },
       });
     });
     return list;
-  }, [servers, serverIds, totals.requestsPerSec, strategy, activeRoute]);
+    // NOTE: intentionally not depending on `servers` — server values stream in
+    // via context inside the node component; depending on it rebuilt the whole
+    // graph on every 500ms metric flush.
+  }, [serverIds, totals.requestsPerSec, strategy, activeRoute]);
 
   const edges: Edge[] = useMemo(() => {
     const list: Edge[] = [
@@ -245,11 +272,13 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
         source: 'router',
         target: 'srv-' + id,
         type: 'traffic',
-        data: { serverId: id, server: servers[id], active: activeRoute?.serverId === id },
+        // Stable data: the edge component reads the live server from context.
+        data: { serverId: id, active: activeRoute?.serverId === id },
       });
     }
     return list;
-  }, [serverIds, servers, activeRoute]);
+    // NOTE: intentionally not depending on `servers` (see nodes above).
+  }, [serverIds, activeRoute]);
 
   if (serverIds.length === 0) {
     return (
@@ -266,7 +295,7 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodeClick={(_, n) => {
-        if (n.type === 'server') openDrawer(n.data.server.id as string);
+        if (n.type === 'server') openDrawer(n.data.serverId as string);
       }}
       nodesDraggable={false}
       nodesConnectable={false}
@@ -278,6 +307,7 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
       zoomOnScroll={!compact}
     >
       {!compact && <Controls showInteractive={false} position="bottom-right" />}
+      <PacketFlow />
     </ReactFlow>
   );
 }

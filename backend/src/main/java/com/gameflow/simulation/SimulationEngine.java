@@ -141,8 +141,6 @@ public class SimulationEngine {
         // Restore crashed servers and clear every injected fault.
         for (String id : registry.serverIds()) {
             try {
-                ServerNode node = directory.get(id);
-                ServerState oldState = node != null ? node.getState() : null;
                 if (registry.isCrashed(id)) {
                     registry.restoreServer(id);
                 }
@@ -150,19 +148,30 @@ public class SimulationEngine {
                 if (impl != null) {
                     impl.clearFaults();
                 }
-                // Broadcast state restoration so connected UIs update immediately
-                // without waiting for a WS reconnect / re-seed.
-                if (node != null && oldState != null && oldState != ServerState.HEALTHY) {
-                    ws.publish("SERVER_STATE_CHANGED", Map.of(
-                            "serverId", id,
-                            "oldState", oldState.name(),
-                            "newState", ServerState.HEALTHY.name()));
-                }
             } catch (Exception e) {
                 log.warn("Reset failed for {}: {}", id, e.getMessage());
             }
         }
+        // Snapshot pre-reset states, reset balancer-side state, THEN broadcast:
+        // previously the SERVER_STATE_CHANGED events claimed HEALTHY before
+        // resetAll() made it true, so a client re-querying mid-reset could see
+        // the stale state.
+        Map<String, ServerState> previousStates = new LinkedHashMap<>();
+        for (String id : registry.serverIds()) {
+            var node = directory.get(id);
+            if (node != null) {
+                previousStates.put(id, node.getState());
+            }
+        }
         directory.resetAll();
+        for (Map.Entry<String, ServerState> e : previousStates.entrySet()) {
+            if (e.getValue() != ServerState.HEALTHY) {
+                ws.publish("SERVER_STATE_CHANGED", Map.of(
+                        "serverId", e.getKey(),
+                        "oldState", e.getValue().name(),
+                        "newState", ServerState.HEALTHY.name()));
+            }
+        }
         gpuAlert.clear();
         lossAlert.clear();
         events.info("SIMULATION_RESET",
@@ -186,6 +195,15 @@ public class SimulationEngine {
 
     public double getSpeed() {
         return speed;
+    }
+
+    /** Interactive traffic control: how many concurrent player sessions to aim for. */
+    public void setTrafficTarget(int targetSessions) {
+        traffic.setTargetSessions(targetSessions);
+    }
+
+    public int getTrafficTarget() {
+        return traffic.getTargetSessions();
     }
 
     private void broadcastState() {
