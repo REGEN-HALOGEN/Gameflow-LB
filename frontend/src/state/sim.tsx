@@ -151,6 +151,17 @@ function reducer(state: SimState, action: Action): SimState {
       const keepInspect = state.inspectedDecision
         ? p.decisions.find((d) => d.id === state.inspectedDecision!.id) ?? state.inspectedDecision
         : null;
+      // Never blank the topology on a re-seed: if the seed comes back with no
+      // servers (backend restart race, transient empty response), keep the last
+      // known server list so the graph stays up instead of unmounting.
+      const nextIds = p.servers.map((s) => s.id);
+      const serverIds = nextIds.length > 0 ? nextIds : state.serverIds;
+      // If we kept old ids, merge old server records so nodes still resolve.
+      if (nextIds.length === 0) {
+        for (const id of state.serverIds) {
+          if (!servers[id] && state.servers[id]) servers[id] = state.servers[id];
+        }
+      }
       return {
         ...state,
         ready: true,
@@ -161,7 +172,7 @@ function reducer(state: SimState, action: Action): SimState {
         strategy: p.system.strategy,
         totals: { ...p.system.totals },
         servers,
-        serverIds: p.servers.map((s) => s.id),
+        serverIds,
         sessions: p.sessions,
         decisions: p.decisions,
         events: p.events,
