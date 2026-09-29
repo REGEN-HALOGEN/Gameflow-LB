@@ -119,6 +119,24 @@ export interface Scenario {
   description: string;
   active: boolean;
   targetServerId: string | null;
+  custom: boolean;
+}
+
+export type CustomStepType = 'WAIT' | 'SET_TRAFFIC' | 'FAULT' | 'RECOVER' | 'STRATEGY';
+
+export interface CustomStep {
+  type: CustomStepType;
+  seconds?: number;
+  targetSessions?: number;
+  serverId?: string;
+  faultType?: FaultType;
+  strategy?: RoutingStrategy;
+}
+
+export interface CustomScenarioRequest {
+  name: string;
+  description?: string;
+  steps: CustomStep[];
 }
 
 export interface MetricPoint {

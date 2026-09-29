@@ -4,6 +4,7 @@ import com.gameflow.model.GameSession;
 import com.gameflow.model.SessionState;
 import com.gameflow.session.SessionManager;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/sessions")
@@ -56,5 +58,15 @@ public class SessionController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown session: " + id);
         }
         return session;
+    }
+
+    /** End a session now (player disconnect). Broadcasts SESSION_TERMINATED. */
+    @DeleteMapping("/{id}")
+    public Map<String, Object> terminate(@PathVariable String id) {
+        if (sessions.get(id) == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Unknown session: " + id);
+        }
+        sessions.terminateSession(id);
+        return Map.of("terminated", true, "sessionId", id);
     }
 }
