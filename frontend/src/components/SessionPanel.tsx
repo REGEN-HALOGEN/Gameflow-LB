@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useState } from 'react';
+import * as api from '../api';
 import { useSim } from '../state/sim';
 import { useTick } from '../lib/useTick';
 import { fmtDuration, fmtMs, fmtTime } from '../lib/format';
@@ -18,15 +19,25 @@ export default function SessionPanel({
   onOpenServer: (id: string) => void;
 }) {
   const { games } = useSim();
+  const [terminating, setTerminating] = useState(false);
+  const [termErr, setTermErr] = useState<string | null>(null);
   useTick(1000, !!session);
   const game = games.find((g) => g.name === session?.game || g.id === session?.game);
 
-  // Auto-close when the session is terminated and removed from the store.
-  useEffect(() => {
-    if (session === null && onClose) {
-      // Already null (closed externally) — nothing to do.
+  const terminate = async () => {
+    if (!session || terminating) return;
+    if (!window.confirm(`Terminate session ${session.id} (${session.playerId})?`)) return;
+    setTerminating(true);
+    setTermErr(null);
+    try {
+      await api.terminateSession(session.id);
+      onClose(); // SESSION_TERMINATED also arrives over WS and removes it
+    } catch (e) {
+      setTermErr(e instanceof Error ? e.message : 'Terminate failed');
+    } finally {
+      setTerminating(false);
     }
-  }, [session, onClose]);
+  };
 
   return (
     <AnimatePresence>
@@ -133,6 +144,17 @@ export default function SessionPanel({
                   MIGRATING — routing engine is selecting a replacement node…
                 </div>
               )}
+
+              {session.state !== 'TERMINATING' && (
+                <button
+                  onClick={terminate}
+                  disabled={terminating}
+                  className="w-full text-center px-2.5 py-2 border border-err/40 rounded-[4px] font-mono text-[11px] text-err hover:bg-err/10 disabled:opacity-40 transition-colors"
+                >
+                  {terminating ? 'terminating…' : 'Terminate session'}
+                </button>
+              )}
+              {termErr && <div className="font-mono text-[10px] text-err">{termErr}</div>}
             </div>
           </motion.aside>
         </>

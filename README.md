@@ -170,6 +170,23 @@ Available on the Demo Scenarios page (all scripted, deterministic):
 Manual fault injection per server is also available: GPU overload, latency
 spike, packet loss, RMI failure, crash, recover.
 
+### Custom scenarios
+
+The Scenarios page also has a **custom scenario builder**: compose your own
+timeline from ordered steps and run it like any demo scenario.
+
+Step types: `WAIT` (seconds) · `SET_TRAFFIC` (target sessions) ·
+`FAULT` (server + fault type) · `RECOVER` (server) · `STRATEGY` (routing
+strategy). Steps run in order on a wall-clock timeline — each step's action
+fires on entry, action steps dwell 3s so their effects are visible, `WAIT`
+steps pace the timeline, and the scenario stops itself (event
+`SCENARIO_COMPLETED`) after the last step. Custom scenarios are listed with a
+`CUSTOM` badge and can be deleted; stopping one clears the faults it injected.
+
+Example — failover drill: `SET_TRAFFIC 120` → `WAIT 10s` →
+`FAULT CRASH on GS-MUM-02` → `WAIT 30s` → `RECOVER GS-MUM-02` →
+`STRATEGY LEAST_SESSIONS`.
+
 ## How to run locally
 
 Prerequisites: Java 21+, Maven, Node 20+.

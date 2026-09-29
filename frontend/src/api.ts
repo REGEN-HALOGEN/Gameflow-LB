@@ -1,5 +1,6 @@
 import { API_BASE } from './config';
 import type {
+  CustomScenarioRequest,
   FaultType,
   GameProfile,
   GameSession,
@@ -48,6 +49,10 @@ export const getSessions = (params?: { state?: string; serverId?: string; search
   return req<GameSession[]>('/sessions' + (s ? '?' + s : ''));
 };
 export const getSession = (id: string) => req<GameSession>('/sessions/' + encodeURIComponent(id));
+export const terminateSession = (id: string) =>
+  req<{ terminated: boolean; sessionId: string }>('/sessions/' + encodeURIComponent(id), {
+    method: 'DELETE',
+  });
 export const getDecisions = (limit = 50) => req<RoutingDecision[]>('/routing/decisions?limit=' + limit);
 export const getStrategy = () => req<{ strategy: RoutingStrategy }>('/routing/strategy');
 export const putStrategy = (strategy: RoutingStrategy) =>
@@ -63,6 +68,12 @@ export const startScenario = (id: string) =>
   req<{ started: boolean; scenarioId: string }>('/scenarios/' + encodeURIComponent(id) + '/start', { method: 'POST' });
 export const stopScenario = (id: string) =>
   req<{ stopped: boolean }>('/scenarios/' + encodeURIComponent(id) + '/stop', { method: 'POST' });
+export const createCustomScenario = (body: CustomScenarioRequest) =>
+  req<Scenario>('/scenarios/custom', { method: 'POST', body: JSON.stringify(body) });
+export const deleteCustomScenario = (id: string) =>
+  req<{ deleted: boolean; scenarioId: string }>('/scenarios/custom/' + encodeURIComponent(id), {
+    method: 'DELETE',
+  });
 
 export const simStart = () => req<{ state: SimulationState }>('/simulation/start', { method: 'POST' });
 export const simPause = () => req<{ state: SimulationState }>('/simulation/pause', { method: 'POST' });

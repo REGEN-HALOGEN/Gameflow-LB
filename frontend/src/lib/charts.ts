@@ -97,7 +97,15 @@ export function aggRows(since: number): Array<Record<string, number>> {
   return out;
 }
 
-/** Per-server series for one metric key, pivoted to rows: { t, [serverId]: value }. */
+/** Per-server series for one metric key, pivoted to rows: { t, [serverId]: value }.
+ *
+ * Pivots on the union of actual point timestamps (with forward-fill), NOT on
+ * array index. Index alignment silently corrupts the charts whenever servers
+ * have different-length histories — e.g. after the server-failure scenario a
+ * crashed node stops emitting METRIC_UPDATE, its array goes short, and every
+ * other server's series shifts onto the wrong timestamps. A silent server now
+ * renders as a flat last-known line instead of poisoning its neighbours.
+ */
 export function serverRows(
   serverIds: string[],
   key: keyof MetricPoint,
@@ -109,22 +117,26 @@ export function serverRows(
     while (lo < arr.length && arr[lo].t < since) lo++;
     return { id, pts: arr.slice(lo) };
   });
-  const maxLen = Math.max(0, ...per.map((p) => p.pts.length));
+  const tSet = new Set<number>();
+  for (const p of per) for (const pt of p.pts) tSet.add(pt.t);
+  const times = [...tSet].sort((a, b) => a - b);
+  const cursor = per.map(() => 0);
+  const last = per.map(() => undefined as number | undefined);
   const out: Array<Record<string, number>> = [];
-  for (let i = 0; i < maxLen; i++) {
-    const row: Record<string, number> = {};
-    let t = 0;
+  for (const t of times) {
+    const row: Record<string, number> = { t };
     let hasAny = false;
-    for (const p of per) {
-      const pt = p.pts[i]; // undefined when this server has fewer points — renders a gap
-      if (!pt) continue;
-      hasAny = true;
-      t = Math.max(t, pt.t);
-      row[p.id] = pt[key] as number;
-    }
-    if (!hasAny) continue;
-    row.t = t;
-    out.push(row);
+    per.forEach((p, i) => {
+      while (cursor[i] < p.pts.length && p.pts[cursor[i]].t <= t) {
+        last[i] = p.pts[cursor[i]][key] as number;
+        cursor[i]++;
+      }
+      if (last[i] !== undefined) {
+        row[p.id] = last[i] as number;
+        hasAny = true;
+      }
+    });
+    if (hasAny) out.push(row);
   }
   return out;
 }

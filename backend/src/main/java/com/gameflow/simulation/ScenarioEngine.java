@@ -3,15 +3,23 @@ package com.gameflow.simulation;
 import com.gameflow.events.EventBus;
 import com.gameflow.health.HealthManager;
 import com.gameflow.model.EventSeverity;
+import com.gameflow.model.FaultType;
+import com.gameflow.model.RoutingStrategy;
 import com.gameflow.model.ServerState;
 import com.gameflow.rmi.GameServerImpl;
 import com.gameflow.rmi.GameServerRegistry;
+import com.gameflow.routing.RoutingEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Deterministic demo scenarios, each a scripted timeline over wall-clock
@@ -26,7 +34,7 @@ public class ScenarioEngine {
     private static final String FAULT_TARGET = "GS-MUM-02";
 
     public record ScenarioDescriptor(String id, String name, String description,
-                                     boolean active, String targetServerId) {
+                                     boolean active, String targetServerId, boolean custom) {
     }
 
     private record ScenarioDef(String id, String name, String description, String targetServerId) {
@@ -54,28 +62,50 @@ public class ScenarioEngine {
     private final HealthManager healthManager;
     private final ServerDirectory directory;
     private final EventBus events;
+    private final FaultInjector faults;
+    private final RoutingEngine routingEngine;
 
     private volatile String activeScenarioId = null;
     private volatile long phaseStartMs = 0;
     private volatile int phase = 0;
 
+    // ---- custom (user-defined) scenarios ----
+    /** Dwell applied to action steps so each step's effect is visible. */
+    private static final long ACTION_DWELL_MS = 3_000;
+    private final Map<String, CustomScenario> customScenarios = new LinkedHashMap<>();
+    private volatile CustomScenario activeCustom = null;
+    private volatile int customStepIndex = -1;
+    private volatile long customStepStartMs = 0;
+    /** Servers faulted by the active custom scenario (cleared on stop). */
+    private final java.util.Set<String> customFaultedServers = new java.util.HashSet<>();
+
     public ScenarioEngine(GameServerRegistry registry,
                           TrafficGenerator traffic,
                           HealthManager healthManager,
                           ServerDirectory directory,
-                          EventBus events) {
+                          EventBus events,
+                          FaultInjector faults,
+                          RoutingEngine routingEngine) {
         this.registry = registry;
         this.traffic = traffic;
         this.healthManager = healthManager;
         this.directory = directory;
         this.events = events;
+        this.faults = faults;
+        this.routingEngine = routingEngine;
     }
 
     public List<ScenarioDescriptor> getDescriptors() {
         List<ScenarioDescriptor> out = new ArrayList<>();
         for (ScenarioDef def : DEFS) {
             out.add(new ScenarioDescriptor(def.id(), def.name(), def.description(),
-                    def.id().equals(activeScenarioId), def.targetServerId()));
+                    def.id().equals(activeScenarioId), def.targetServerId(), false));
+        }
+        synchronized (customScenarios) {
+            for (CustomScenario sc : customScenarios.values()) {
+                out.add(new ScenarioDescriptor(sc.id(), sc.name(), sc.description(),
+                        sc.id().equals(activeScenarioId), null, true));
+            }
         }
         return out;
     }
@@ -85,6 +115,14 @@ public class ScenarioEngine {
     }
 
     public synchronized void start(String scenarioId) {
+        CustomScenario custom;
+        synchronized (customScenarios) {
+            custom = customScenarios.get(scenarioId);
+        }
+        if (custom != null) {
+            startCustom(custom);
+            return;
+        }
         ScenarioDef def = DEFS.stream()
                 .filter(d -> d.id().equals(scenarioId))
                 .findFirst()
@@ -111,13 +149,192 @@ public class ScenarioEngine {
 
     private void stopActive() {
         clearFaultOverrides(FAULT_TARGET);
+        for (String id : customFaultedServers) {
+            clearFaultOverrides(id);
+        }
+        customFaultedServers.clear();
         events.info("SCENARIO_STOPPED", "Scenario stopped: " + activeScenarioId, null);
         activeScenarioId = null;
+        activeCustom = null;
+        customStepIndex = -1;
         phase = 0;
+    }
+
+    // ---------------- custom scenarios ----------------
+
+    /** Validate and store a user-defined scenario. Returns the descriptor. */
+    public synchronized ScenarioDescriptor createCustom(String name, String description,
+                                                        List<CustomScenario.Step> steps) {
+        if (name == null || name.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Scenario name is required");
+        }
+        if (name.length() > 80) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Scenario name too long (max 80)");
+        }
+        if (steps == null || steps.isEmpty() || steps.size() > 20) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Scenario must have 1..20 steps");
+        }
+        for (int i = 0; i < steps.size(); i++) {
+            validateStep(i, steps.get(i));
+        }
+        String id = "custom-" + UUID.randomUUID().toString().substring(0, 8);
+        CustomScenario sc = new CustomScenario(id, name.strip(),
+                description == null ? "" : description.strip(),
+                List.copyOf(steps), System.currentTimeMillis());
+        synchronized (customScenarios) {
+            customScenarios.put(id, sc);
+        }
+        events.info("SCENARIO_CREATED", "Custom scenario created: " + sc.name()
+                + " (" + steps.size() + " steps)", null);
+        return new ScenarioDescriptor(id, sc.name(), sc.description(), false, null, true);
+    }
+
+    public synchronized void deleteCustom(String scenarioId) {
+        CustomScenario removed;
+        synchronized (customScenarios) {
+            removed = customScenarios.remove(scenarioId);
+        }
+        if (removed == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Unknown custom scenario: " + scenarioId);
+        }
+        if (scenarioId.equals(activeScenarioId)) {
+            stopActive();
+        }
+        events.info("SCENARIO_DELETED", "Custom scenario deleted: " + removed.name(), null);
+    }
+
+    private void validateStep(int i, CustomScenario.Step step) {
+        String where = "Step " + (i + 1) + ": ";
+        if (step == null || step.type() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, where + "type is required");
+        }
+        switch (step.type()) {
+            case WAIT -> {
+                if (step.seconds() == null || step.seconds() < 1 || step.seconds() > 600) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            where + "WAIT needs seconds in 1..600");
+                }
+            }
+            case SET_TRAFFIC -> {
+                if (step.targetSessions() == null || step.targetSessions() < 0 || step.targetSessions() > 1000) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            where + "SET_TRAFFIC needs targetSessions in 0..1000");
+                }
+            }
+            case FAULT -> {
+                requireServer(where, step.serverId());
+                if (step.faultType() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            where + "FAULT needs faultType");
+                }
+            }
+            case RECOVER -> requireServer(where, step.serverId());
+            case STRATEGY -> {
+                if (step.strategy() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            where + "STRATEGY needs strategy");
+                }
+            }
+        }
+    }
+
+    private void requireServer(String where, String serverId) {
+        if (serverId == null || directory.get(serverId) == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    where + "unknown serverId: " + serverId);
+        }
+    }
+
+    private void startCustom(CustomScenario sc) {
+        stopAll();
+        activeCustom = sc;
+        activeScenarioId = sc.id();
+        customStepIndex = -1;
+        customStepStartMs = System.currentTimeMillis();
+        events.info("SCENARIO_STARTED", "Custom scenario started: " + sc.name(), null);
+        advanceCustom();
+    }
+
+    /** Execute the next step's action and start its dwell timer. */
+    private void advanceCustom() {
+        CustomScenario sc = activeCustom;
+        if (sc == null) {
+            return;
+        }
+        customStepIndex++;
+        customStepStartMs = System.currentTimeMillis();
+        List<CustomScenario.Step> steps = sc.steps();
+        if (customStepIndex >= steps.size()) {
+            String name = sc.name();
+            stopActive();
+            events.info("SCENARIO_COMPLETED", "Custom scenario completed: " + name, null);
+            return;
+        }
+        CustomScenario.Step step = steps.get(customStepIndex);
+        executeCustomStep(step);
+    }
+
+    private void executeCustomStep(CustomScenario.Step step) {
+        String label = "step " + (customStepIndex + 1) + "/" + activeCustom.steps().size();
+        try {
+            switch (step.type()) {
+                case WAIT -> events.info("SCENARIO_PHASE",
+                        "Waiting " + step.seconds() + "s (" + label + ")", null);
+                case SET_TRAFFIC -> {
+                    traffic.setTargetSessions(step.targetSessions());
+                    events.info("SCENARIO_PHASE",
+                            "Traffic target → " + step.targetSessions() + " sessions (" + label + ")", null);
+                }
+                case FAULT -> {
+                    faults.inject(step.serverId(), step.faultType());
+                    customFaultedServers.add(step.serverId());
+                }
+                case RECOVER -> {
+                    faults.recover(step.serverId());
+                    customFaultedServers.remove(step.serverId());
+                }
+                case STRATEGY -> routingEngine.setActiveStrategy(step.strategy());
+            }
+        } catch (ResponseStatusException e) {
+            // A failed step must not kill the timeline; record and continue.
+            events.warn("SCENARIO_PHASE",
+                    "Step failed (" + label + "): " + e.getReason(), step.serverId());
+            log.warn("Custom scenario step failed: {}", e.getReason());
+        } catch (Exception e) {
+            events.warn("SCENARIO_PHASE",
+                    "Step failed (" + label + "): " + e.getMessage(), step.serverId());
+            log.warn("Custom scenario step failed", e);
+        }
+    }
+
+    /** Dwell per step: WAIT uses its seconds, actions get a fixed pause so
+     *  their effects are visible before the timeline moves on. */
+    private static long dwellMs(CustomScenario.Step step) {
+        return step.type() == CustomScenario.StepType.WAIT
+                ? (long) (step.seconds() * 1000)
+                : ACTION_DWELL_MS;
+    }
+
+    /** Called on every traffic tick while a custom scenario is active. */
+    private void tickCustom() {
+        CustomScenario sc = activeCustom;
+        if (sc == null || customStepIndex < 0 || customStepIndex >= sc.steps().size()) {
+            return;
+        }
+        long elapsed = System.currentTimeMillis() - customStepStartMs;
+        if (elapsed >= dwellMs(sc.steps().get(customStepIndex))) {
+            advanceCustom();
+        }
     }
 
     /** Called on every traffic tick while RUNNING. Advances scripted phases. */
     public synchronized void tick() {
+        if (activeCustom != null) {
+            tickCustom();
+            return;
+        }
         if (activeScenarioId == null) {
             return;
         }

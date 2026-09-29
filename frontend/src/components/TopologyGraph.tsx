@@ -70,8 +70,13 @@ function RouterNode({ data }: NodeProps<{ strategy: string }>) {
 
 const ServerNodeView = memo(function ServerNodeView({
   data,
-}: NodeProps<{ server: ServerNodeT }>) {
-  const s = data.server;
+}: NodeProps<{ serverId: string }>) {
+  // Read the live server from context instead of taking a snapshot in `data`:
+  // that keeps the node's data reference stable across metric flushes so
+  // React Flow doesn't tear down and rebuild the graph at 2Hz.
+  const { servers } = useSim();
+  const s = servers[data.serverId];
+  if (!s) return null;
   const m = s.metrics;
   const bar = (v: number) => {
     const c = v >= 90 ? '#EF4444' : v >= 75 ? '#F59E0B' : '#4F8CFF';
@@ -153,7 +158,10 @@ function TrafficEdge({
   });
   const [hover, setHover] = React.useState(false);
   const active = !!data?.active;
-  const s: ServerNodeT | undefined = data?.server;
+  // Live server for the hover tooltip — read from context so the edge's `data`
+  // stays a stable { serverId, active } reference across metric flushes.
+  const { servers } = useSim();
+  const s: ServerNodeT | undefined = data?.serverId ? servers[data.serverId] : undefined;
   return (
     <>
       <path
@@ -204,7 +212,7 @@ const edgeTypes = { traffic: TrafficEdge };
 // ---------------------------------------------------------------------------
 
 export default function TopologyGraph({ compact }: { compact?: boolean }) {
-  const { servers, serverIds, totals, strategy, activeRoute, openDrawer, simState } = useSim();
+  const { serverIds, totals, strategy, activeRoute, openDrawer, simState } = useSim();
 
   const nodes: Node[] = useMemo(() => {
     const list: Node[] = [
@@ -228,11 +236,15 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
         id: 'srv-' + id,
         type: 'server',
         position: { x: xs[i % xs.length], y: 380 },
-        data: { server: servers[id] },
+        // Stable data: the node component reads the live server from context.
+        data: { serverId: id },
       });
     });
     return list;
-  }, [servers, serverIds, totals.requestsPerSec, strategy, activeRoute]);
+    // NOTE: intentionally not depending on `servers` — server values stream in
+    // via context inside the node component; depending on it rebuilt the whole
+    // graph on every 500ms metric flush.
+  }, [serverIds, totals.requestsPerSec, strategy, activeRoute]);
 
   const edges: Edge[] = useMemo(() => {
     const list: Edge[] = [
@@ -245,11 +257,13 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
         source: 'router',
         target: 'srv-' + id,
         type: 'traffic',
-        data: { serverId: id, server: servers[id], active: activeRoute?.serverId === id },
+        // Stable data: the edge component reads the live server from context.
+        data: { serverId: id, active: activeRoute?.serverId === id },
       });
     }
     return list;
-  }, [serverIds, servers, activeRoute]);
+    // NOTE: intentionally not depending on `servers` (see nodes above).
+  }, [serverIds, activeRoute]);
 
   if (serverIds.length === 0) {
     return (
@@ -266,7 +280,7 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodeClick={(_, n) => {
-        if (n.type === 'server') openDrawer(n.data.server.id as string);
+        if (n.type === 'server') openDrawer(n.data.serverId as string);
       }}
       nodesDraggable={false}
       nodesConnectable={false}

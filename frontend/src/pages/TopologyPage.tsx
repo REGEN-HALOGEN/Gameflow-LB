@@ -1,14 +1,10 @@
-import { useState } from 'react';
 import TopologyGraph from '../components/TopologyGraph';
-import SessionPanel from '../components/SessionPanel';
 import { useSim } from '../state/sim';
 import { BackendDown } from './Overview';
 import { Skeleton } from '../components/ui';
-import type { GameSession } from '../types';
 
 export default function TopologyPage() {
-  const { ready, backendUp, openDrawer, activeRoute, decisions } = useSim();
-  const [session, setSession] = useState<GameSession | null>(null);
+  const { ready, backendUp, activeRoute, decisions } = useSim();
 
   const last = activeRoute ? decisions.find((d) => d.id === activeRoute.decisionId) : undefined;
 
@@ -40,7 +36,6 @@ export default function TopologyPage() {
           </div>
         )}
       </div>
-      <SessionPanel session={session} onClose={() => setSession(null)} onOpenServer={(id) => { setSession(null); openDrawer(id); }} />
     </div>
   );
 }
