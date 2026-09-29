@@ -32,6 +32,10 @@ export interface ActiveRoute {
   decisionId: string;
   serverId: string | null;
   at: number;
+  /** Monotonic token so the clear-timer effect re-runs for every decision,
+   *  even when two decisions land in the same millisecond (Date.now()
+   *  collisions at high traffic left the edge animation stuck on). */
+  seq: number;
 }
 
 export interface SimState {
@@ -120,6 +124,11 @@ function patchServer(state: SimState, id: string, patch: Partial<ServerNode>): S
   if (!s) return state;
   return { ...state, servers: { ...state.servers, [id]: { ...s, ...patch } } };
 }
+
+// Monotonic token for ActiveRoute.seq. Module-level (not in the reducer's
+// state) so every ROUTING_DECISION gets a unique ordering key even when two
+// decisions share the same Date.now() millisecond.
+let routeSeq = 0;
 
 function reducer(state: SimState, action: Action): SimState {
   switch (action.type) {
@@ -210,7 +219,7 @@ function reducer(state: SimState, action: Action): SimState {
       // because there's no edge to highlight and the null serverId confuses the
       // edge active-check (null === serverId is always false → edge never clears).
       const newRoute = action.decision.selectedServerId
-        ? { decisionId: action.decision.id, serverId: action.decision.selectedServerId, at: Date.now() }
+        ? { decisionId: action.decision.id, serverId: action.decision.selectedServerId, at: Date.now(), seq: ++routeSeq }
         : state.activeRoute; // keep current flash, don't reset it to null-server
       return { ...state, decisions, activeRoute: newRoute };
     }
@@ -285,6 +294,9 @@ interface SimContextValue extends SimState {
   openDrawer: (serverId: string | null) => void;
   inspectDecision: (d: RoutingDecision | null) => void;
   retrySeed: () => void;
+  /** Re-fetch scenarios from REST — fallback for start/stop when the
+   *  SCENARIO_STARTED/STOPPED WS event is missed. */
+  refreshScenarios: () => void;
 }
 
 const SimContext = createContext<SimContextValue | null>(null);
@@ -301,7 +313,7 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
   stateRef.current = state;
   const retryRef = useRef(0);
   // Single timer ref — always cancel the previous one before setting a new one.
-  // Keyed on activeRoute.at (timestamp) so SEED resets and rapid decisions
+  // Keyed on activeRoute.seq (monotonic) so SEED resets and rapid decisions
   // never orphan a stale CLEAR_ROUTE that can't match the current decisionId.
   const routeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -311,10 +323,18 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
     retryRef.current++;
     dispatch({ type: 'RETRY_SEED' });
   }, []);
+  const refreshScenarios = useCallback(() => {
+    api
+      .getScenarios()
+      .then((scenarios) => dispatch({ type: 'SCENARIOS', scenarios }))
+      .catch(() => {});
+  }, []);
 
   // Clear the routing-edge highlight ~1.5s after a decision.
-  // We key off activeRoute.at (ms timestamp) instead of the object identity so
-  // that rapid back-to-back decisions and SEED resets both work correctly.
+  // Keyed on activeRoute.seq (monotonic) instead of the wall-clock timestamp
+  // so rapid back-to-back decisions — including two in the same millisecond —
+  // and SEED resets never orphan a stale CLEAR_ROUTE that can't match the
+  // current decisionId (that left the edge animation stuck on).
   useEffect(() => {
     if (routeTimerRef.current !== null) {
       clearTimeout(routeTimerRef.current);
@@ -327,7 +347,7 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
       dispatch({ type: 'CLEAR_ROUTE', decisionId: id });
     }, 1500);
     // No cleanup return — the ref handles cancellation on the next run.
-  }, [state.activeRoute?.at]);  // depend on timestamp, not the object
+  }, [state.activeRoute?.seq]);  // depend on the monotonic token, not the timestamp
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -477,8 +497,8 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
   }, [retryRef.current]);
 
   const value = useMemo<SimContextValue>(
-    () => ({ ...state, openDrawer, inspectDecision, retrySeed }),
-    [state, openDrawer, inspectDecision, retrySeed],
+    () => ({ ...state, openDrawer, inspectDecision, retrySeed, refreshScenarios }),
+    [state, openDrawer, inspectDecision, retrySeed, refreshScenarios],
   );
 
   return <SimContext.Provider value={value}>{children}</SimContext.Provider>;
