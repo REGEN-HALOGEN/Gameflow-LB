@@ -462,13 +462,24 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
       };
     };
 
+    const handleBeforeUnload = () => {
+      closed = true;
+      try {
+        ws?.close(1000, 'Page unload');
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     connect();
     return () => {
       closed = true;
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       clearInterval(flushTimer);
       if (retryTimer) clearTimeout(retryTimer);
       try {
-        ws?.close();
+        ws?.close(1000, 'Unmount');
       } catch {
         /* ignore */
       }

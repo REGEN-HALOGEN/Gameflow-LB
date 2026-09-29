@@ -134,17 +134,31 @@ loss > 5%, player latency > 100 ms, circuit OPEN, server
 UNHEALTHY/OFFLINE/RECOVERING. Alternatives: `LEAST_SESSIONS`,
 `LOWEST_LATENCY`, `ROUND_ROBIN` — switchable live from the UI.
 
-### Session management
+### Session management & failover
 
 `SessionManager` keeps sessions in a `ConcurrentHashMap`. States:
 `CREATING → ACTIVE → (MIGRATING) → TERMINATING → TERMINATED`, plus `FAILED`.
 On server failure, affected sessions are marked `MIGRATING`, re-routed through
-the routing engine, and reassigned — the UI animates the migration.
+the routing engine, and reassigned — the UI animates the migration in real time.
+Individual sessions can also be manually terminated from the Session detail drawer.
 
 ### Circuit breaker
 
 Per server: `CLOSED` → 3 consecutive failures → `OPEN` (removed from routing)
 → 10 s → `HALF_OPEN` (single probe) → success `CLOSED`, failure `OPEN`.
+
+---
+
+## Core Features & Functionality
+
+- **Live Topology Graph**: Interactive React Flow graph displaying nodes, animated packet flow, real-time circuit-breaker statuses, and animated route flash highlights.
+- **Visual Playground & ChaosBar**: Real-time traffic dial (adjust RPS / session count on the fly), transport selector, and instant chaos injection (GPU overload, latency spikes, packet loss, RMI failure, crash, recover).
+- **Packet Flow Animation**: Canvas-rendered live particle animation showing packets traveling from client regions through the load balancer to the selected game servers.
+- **Routing Decision Inspector**: Deep inspection of candidate scoring breakdowns, penalty reasons, and algorithm weights across all 4 strategies (`WEIGHTED_GAMING`, `LEAST_SESSIONS`, `LOWEST_LATENCY`, `ROUND_ROBIN`).
+- **Deterministic & Custom Scenarios**: Run built-in stress scenarios or use the **Custom Scenario Builder** to compose multi-step chaos drills.
+- **Real-Time Telemetry & Charts**: Live-updating GPU/CPU utilization, latency distributions, packet loss, and session counters backed by WebSocket events and history buffers.
+
+---
 
 ## Technology stack
 
@@ -153,7 +167,9 @@ Per server: `CLOSED` → 3 consecutive failures → `OPEN` (removed from routing
 | Backend | Java 21, Spring Boot 3.2 (WebFlux), Java RMI, Maven, JUnit 5, Mockito |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, React Flow, Recharts, Framer Motion, lucide-react |
 | Streaming | WebSocket (`/ws/events`), REST (`/api/*`) |
-| Containers | Podman / Docker-compatible Containerfiles, Podman Compose |
+| Deployment | Local-only, zero container/cloud dependencies |
+
+---
 
 ## Demo scenarios
 
@@ -187,27 +203,64 @@ Example — failover drill: `SET_TRAFFIC 120` → `WAIT 10s` →
 `FAULT CRASH on GS-MUM-02` → `WAIT 30s` → `RECOVER GS-MUM-02` →
 `STRATEGY LEAST_SESSIONS`.
 
-## How to run locally
+---
 
-Prerequisites: Java 21+, Maven, Node 20+.
+## How to run the application
+
+Prerequisites: **Java 21+** and **Node.js 18+ (with npm)**.
+
+### Option 1: Windows One-Click (`start.bat`) — Recommended for Windows
+
+Double-click `start.bat` in File Explorer, or run it from Command Prompt / PowerShell:
+
+```cmd
+start.bat
+```
+
+What `start.bat` does automatically:
+1. **Finds Java 21+**: Checks `PATH`, `JAVA_HOME`, and common JDK install locations (such as Eclipse Adoptium, Oracle, and Microsoft OpenJDK).
+2. **Checks Node & npm**: Verifies `npm` is ready.
+3. **Starts the Backend**: Runs `mvn -q spring-boot:run` (or falls back directly to the pre-packaged JAR `backend/target/gameflow-lb-1.0.0.jar` if Maven is not installed).
+4. **Starts the Frontend**: Spawns the Vite dev server (`npm run dev`) in a dedicated console.
+5. **Health Checks & Auto-Opens**: Polls `http://localhost:8080/api/system` until the backend is healthy, then opens `http://localhost:5173` in your default browser.
+
+To stop the servers, simply close the opened Backend and Frontend console windows.
+
+---
+
+### Option 2: Linux / macOS One-Command (`start.sh`)
+
+Make the script executable (if needed) and execute:
 
 ```bash
-# Backend (http://localhost:8080, RMI registry :1099)
+chmod +x start.sh
+./start.sh
+```
+
+This starts the backend and frontend in the background, waits for `http://localhost:8080/api/system` to respond, and announces readiness.
+
+---
+
+### Option 3: Manual Startup
+
+If you prefer starting services manually in separate terminals:
+
+```bash
+# Terminal 1 — Backend (REST + WS on :8080, RMI registry on :1099)
 cd backend
 mvn spring-boot:run
+# Or run the jar directly if already built:
+# java -Djava.rmi.server.hostname=127.0.0.1 -jar target/gameflow-lb-1.0.0.jar
 
-# Frontend (http://localhost:5173)
+# Terminal 2 — Frontend (http://localhost:5173)
 cd frontend
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and press **Start Simulation**.
+Then open `http://localhost:5173` and click **Start Simulation**.
 
-That's the whole deployment: the Spring Boot backend serves REST + WebSocket
-on `:8080`, the game-server nodes live in the same JVM and talk to the load
-balancer over **Java RMI** (registry on `:1099`), and the Vite frontend
-proxies `/api` and `/ws` to the backend. No containers, no cloud services.
+---
 
 ## API overview
 
@@ -218,12 +271,16 @@ Full contract: [`CONTRACT.md`](CONTRACT.md).
 | GET | `/api/system` | Status, sim state, speed, fleet totals |
 | GET | `/api/servers` / `/api/servers/{id}` | Servers + live metrics |
 | GET | `/api/sessions` | Sessions (`?state=&serverId=&search=`) |
+| DELETE | `/api/sessions/{id}` | Terminate an individual game session |
 | GET | `/api/routing/decisions?limit=` | Inspectable routing decisions |
 | GET/PUT | `/api/routing/strategy` | Active routing strategy |
 | GET | `/api/events?limit=&severity=` | Ops event log |
 | POST | `/api/simulation/start\|pause\|resume\|reset` | Simulation control |
 | PUT | `/api/simulation/speed` | 0.5 / 1 / 2 / 5 |
+| POST | `/api/simulation/traffic` | Dynamically set target sessions |
 | POST | `/api/scenarios/{id}/start\|stop` | Demo scenarios |
+| POST | `/api/scenarios/custom` | Create custom scenario |
+| DELETE | `/api/scenarios/custom/{id}` | Delete custom scenario |
 | POST | `/api/servers/{id}/fault` | Inject fault (`{type}`) |
 | POST | `/api/servers/{id}/recover` | Recover server |
 | GET | `/api/metrics/history?windowSec=` | Chart history seed |
@@ -233,16 +290,11 @@ WebSocket `ws://localhost:8080/ws/events` streams: `METRIC_UPDATE`,
 `ROUTING_DECISION` (full, with per-candidate score breakdown),
 `CIRCUIT_CHANGED`, `SYSTEM_EVENT`, `SIMULATION_STATE_CHANGED`.
 
-## Screenshots
-
-> Screenshots are not bundled with this repo — run it locally
-> (`cd backend && mvn spring-boot:run`, `cd frontend && npm run dev`,
-> open http://localhost:5173) to see the live console: overview dashboard,
-> animated topology with packet flow, routing decision inspector, failover
-> (server failure → circuit open → migration), and metrics charts.
+---
 
 ## Tests
 
+### Backend Unit & Integration Tests
 ```bash
 cd backend
 mvn test
@@ -254,6 +306,14 @@ success/failure), session creation, failover reassignment, health-state
 transitions, and RMI failure → OFFLINE via a Mockito-thrown
 `RemoteException`.
 
+### Frontend TypeScript & Bundle Checks
+```bash
+cd frontend
+npm run build
+```
+
+---
+
 ## Project layout
 
 ```
@@ -261,6 +321,7 @@ gameflow-lb/
 ├── backend/                 # Spring Boot load balancer + RMI game servers
 │   └── src/main/java/com/gameflow/
 │       ├── api/             # REST controllers
+│       ├── config/          # CORS & WebSocket configuration
 │       ├── websocket/       # WS event broadcaster
 │       ├── routing/         # RoutingEngine + 4 strategies
 │       ├── rmi/             # GameServerRemote, impls, registry
@@ -271,16 +332,19 @@ gameflow-lb/
 │       └── history/         # Metric history ring buffers
 ├── frontend/                # React ops console
 │   └── src/
-│       ├── pages/           # 10 routes
-│       ├── components/      # Topology, drawer, inspector, charts…
+│       ├── pages/           # 10 routes (Overview, Topology, Routing, etc.)
+│       ├── components/      # Topology, PacketFlow, ChaosBar, drawer, inspector, charts…
 │       └── state/           # WS-driven global store
 ├── CONTRACT.md              # API + WebSocket contract (both sides conform)
-└── start.sh                 # one-command local startup (backend + frontend)
+├── start.bat                # Windows one-click startup (backend + frontend)
+└── start.sh                 # Linux/macOS one-command startup (backend + frontend)
 ```
+
+---
 
 ## Future improvements
 
-- Run each game server as a separate JVM/process (or container) with the RMI
+- Run each game server as a separate JVM/process with the RMI
   registry shared over the network — the code is already structured for it.
 - True live migration of encoder state instead of session reassignment.
 - Persistent event/decision store (e.g. TimescaleDB) for post-mortems.
