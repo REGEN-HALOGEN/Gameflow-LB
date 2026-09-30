@@ -38,6 +38,12 @@ public class SessionManager {
 
     private final ConcurrentHashMap<String, GameSession> sessions = new ConcurrentHashMap<>();
     private final AtomicLong sessionSeq = new AtomicLong(10000);
+    
+    private final java.util.concurrent.PriorityBlockingQueue<PlayerRequest> waitQueue = new java.util.concurrent.PriorityBlockingQueue<>(
+            100,
+            Comparator.comparing((PlayerRequest r) -> !r.isVip())
+                      .thenComparingLong(PlayerRequest::getQueuedAt)
+    );
 
     private final RoutingEngine routingEngine;
     private final GameServerRegistry registry;
@@ -62,44 +68,78 @@ public class SessionManager {
      * Returns null when no server could take the session.
      */
     public GameSession createSession(PlayerRequest request) {
-        String sessionId = String.format("S-%05d", sessionSeq.incrementAndGet());
-        request.setSessionId(sessionId);
+        if (request.getSessionId() == null) {
+            String sessionId = String.format("S-%05d", sessionSeq.incrementAndGet());
+            request.setSessionId(sessionId);
+        }
 
         RoutingDecision decision = routingEngine.route(request);
-        if (decision.getSelectedServerId() == null) {
-            return null;
-        }
+        if (decision.getSelectedServerId() != null) {
+            List<CandidateScore> eligible = decision.getCandidates().stream()
+                    .filter(CandidateScore::isEligible)
+                    .sorted(Comparator.comparingDouble(CandidateScore::getScore))
+                    .toList();
 
-        List<CandidateScore> eligible = decision.getCandidates().stream()
-                .filter(CandidateScore::isEligible)
-                .sorted(Comparator.comparingDouble(CandidateScore::getScore))
-                .toList();
-
-        for (CandidateScore candidate : eligible) {
-            String serverId = candidate.getServerId();
-            try {
-                GameServerRemote stub = registry.lookupStub(serverId);
-                if (stub == null) {
-                    throw new RemoteException("No RMI stub for " + serverId);
+            for (CandidateScore candidate : eligible) {
+                String serverId = candidate.getServerId();
+                try {
+                    GameServerRemote stub = registry.lookupStub(serverId);
+                    if (stub == null) {
+                        throw new RemoteException("No RMI stub for " + serverId);
+                    }
+                    GameSession session = stub.createSession(request);
+                    session.setVip(request.isVip());
+                    session.setState(SessionState.ACTIVE);
+                    sessions.put(session.getId(), session);
+                    events.info("SESSION_CREATED",
+                            request.getPlayerId() + " → " + serverId + (request.isVip() ? " [VIP]" : ""), serverId);
+                    ws.publish("SESSION_CREATED", Map.of("session", session));
+                    return session;
+                } catch (RemoteException e) {
+                    log.warn("createSession RMI failed on {}: {}", serverId, e.getMessage());
+                    breakers.get(serverId).recordFailure();
+                    // Keep trying other eligible candidates
                 }
-                GameSession session = stub.createSession(request);
-                session.setState(SessionState.ACTIVE);
-                sessions.put(session.getId(), session);
-                events.info("SESSION_CREATED",
-                        request.getPlayerId() + " → " + serverId, serverId);
-                ws.publish("SESSION_CREATED", Map.of("session", session));
-                return session;
-            } catch (RemoteException e) {
-                log.warn("createSession RMI failed on {}: {}", serverId, e.getMessage());
-                breakers.get(serverId).recordFailure();
-                events.publish("SESSION_CREATE_FAILED", EventSeverity.WARN,
-                        "RMI createSession failed on " + serverId + ", trying next candidate",
-                        serverId);
             }
         }
-        events.error("SESSION_CREATE_FAILED",
-                "All candidates failed for " + request.getPlayerId(), null);
+
+        // If we exhausted all candidates or none were available, queue it.
+        if (request.getQueuedAt() == 0) {
+            request.setQueuedAt(System.currentTimeMillis());
+        }
+        waitQueue.offer(request);
+        events.info("SESSION_QUEUED", 
+            request.getPlayerId() + " added to wait queue (size: " + waitQueue.size() + ")", null);
+        broadcastQueueState();
         return null;
+    }
+
+    public void processWaitQueue() {
+        if (waitQueue.isEmpty()) return;
+        
+        // Try to place up to 5 queued sessions per tick to avoid overwhelming
+        int attempts = Math.min(5, waitQueue.size());
+        List<PlayerRequest> requeue = new ArrayList<>();
+        
+        for (int i = 0; i < attempts; i++) {
+            PlayerRequest req = waitQueue.poll();
+            if (req == null) break;
+            
+            GameSession s = createSession(req);
+            if (s == null) {
+                // Not placed, don't put back in waitQueue immediately because createSession already did!
+                // Wait, createSession calls waitQueue.offer(request) again if it fails!
+                // So it's already back in the queue.
+            }
+        }
+    }
+
+    private void broadcastQueueState() {
+        int vipCount = (int) waitQueue.stream().filter(PlayerRequest::isVip).count();
+        ws.publish("WAIT_QUEUE_UPDATED", Map.of(
+            "size", waitQueue.size(),
+            "vipCount", vipCount
+        ));
     }
 
     public GameSession get(String sessionId) {

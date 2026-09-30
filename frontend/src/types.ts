@@ -2,12 +2,12 @@
 // GameFlow LB contract types — mirrors ~/workspace/gameflow-lb/CONTRACT.md
 // ---------------------------------------------------------------------------
 
-export type ServerState = 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'OFFLINE' | 'RECOVERING';
+export type ServerState = 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'OFFLINE' | 'RECOVERING' | 'DRAINING';
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
 export type RmiStatus = 'CONNECTED' | 'UNREACHABLE';
 export type SessionState = 'CREATING' | 'ACTIVE' | 'MIGRATING' | 'TERMINATING' | 'TERMINATED' | 'FAILED';
 export type SimulationState = 'STOPPED' | 'RUNNING' | 'PAUSED';
-export type RoutingStrategy = 'WEIGHTED_GAMING' | 'LEAST_SESSIONS' | 'LOWEST_LATENCY' | 'ROUND_ROBIN';
+export type RoutingStrategy = 'WEIGHTED_GAMING' | 'LEAST_SESSIONS' | 'LOWEST_LATENCY' | 'ROUND_ROBIN' | 'COST_OPTIMIZED';
 export type EventSeverity = 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
 export type FaultType = 'GPU_OVERLOAD' | 'LATENCY_SPIKE' | 'PACKET_LOSS' | 'RMI_FAILURE' | 'CRASH';
 export type WsStatus = 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED';
@@ -38,6 +38,8 @@ export interface ServerNode {
   rmiStatus: RmiStatus;
   eligible: boolean;
   weight: number;
+  costPerHour: number;
+  hardwareTier: string;
   metrics: ServerMetrics;
 }
 
@@ -53,6 +55,12 @@ export interface GameSession {
   latencyMs: number;
   startTime: number;
   durationSec: number;
+  vip: boolean;
+}
+
+export interface WaitQueueInfo {
+  size: number;
+  vipCount: number;
 }
 
 export interface ScoreBreakdown {
@@ -111,6 +119,7 @@ export interface GameProfile {
   vramLoad: number;
   networkLoad: number;
   cpuLoad: number;
+  requiredHardwareTier: string;
 }
 
 export interface Scenario {

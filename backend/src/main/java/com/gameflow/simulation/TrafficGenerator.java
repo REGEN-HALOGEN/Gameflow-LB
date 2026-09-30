@@ -86,6 +86,7 @@ public class TrafficGenerator {
         String playerId = "P-" + playerSeq.incrementAndGet();
 
         PlayerRequest request = new PlayerRequest(playerId, city, game.getName(), resolution, fps);
+        request.setVip(random.nextDouble() < 0.15); // 15% VIP
         sessionManager.createSession(request);
     }
 }

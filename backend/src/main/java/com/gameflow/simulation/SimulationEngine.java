@@ -57,6 +57,7 @@ public class SimulationEngine {
     private final HistoryService history;
     private final EventBus events;
     private final WsEventPublisher ws;
+    private final AutoScaler autoScaler;
 
     private final Map<String, Boolean> gpuAlert = new LinkedHashMap<>();
     private final Map<String, Boolean> lossAlert = new LinkedHashMap<>();
@@ -74,7 +75,8 @@ public class SimulationEngine {
                             RoutingEngine routingEngine,
                             HistoryService history,
                             EventBus events,
-                            WsEventPublisher ws) {
+                            WsEventPublisher ws,
+                            AutoScaler autoScaler) {
         this.directory = directory;
         this.registry = registry;
         this.healthManager = healthManager;
@@ -86,6 +88,7 @@ public class SimulationEngine {
         this.history = history;
         this.events = events;
         this.ws = ws;
+        this.autoScaler = autoScaler;
 
         ThreadFactory daemon = r -> {
             Thread t = new Thread(r, "gameflow-traffic");
@@ -138,6 +141,7 @@ public class SimulationEngine {
         events.clear();
         healthManager.reset();
         breakers.resetAll();
+        autoScaler.reset();
         // Restore crashed servers and clear every injected fault.
         for (String id : registry.serverIds()) {
             try {
@@ -161,11 +165,26 @@ public class SimulationEngine {
             var node = directory.get(id);
             if (node != null) {
                 previousStates.put(id, node.getState());
+            } else {
+                // If the node was dynamically added and removed, or we need to tear down dynamic nodes
+                if (!id.equals("GS-MUM-01") && !id.equals("GS-MUM-02") && !id.equals("GS-SIN-01") && !id.equals("GS-BLR-01")) {
+                    registry.unregisterServer(id);
+                }
             }
         }
+        
+        // Remove dynamic nodes from registry if they were added
+        for (String id : new java.util.ArrayList<>(registry.serverIds())) {
+            if (!id.equals("GS-MUM-01") && !id.equals("GS-MUM-02") && !id.equals("GS-SIN-01") && !id.equals("GS-BLR-01")) {
+                registry.unregisterServer(id);
+                breakers.unregister(id);
+                ws.publish("SERVER_REMOVED", Map.of("serverId", id));
+            }
+        }
+
         directory.resetAll();
         for (Map.Entry<String, ServerState> e : previousStates.entrySet()) {
-            if (e.getValue() != ServerState.HEALTHY) {
+            if (e.getValue() != ServerState.HEALTHY && registry.getImpl(e.getKey()) != null) {
                 ws.publish("SERVER_STATE_CHANGED", Map.of(
                         "serverId", e.getKey(),
                         "oldState", e.getValue().name(),
@@ -235,6 +254,7 @@ public class SimulationEngine {
         }
         try {
             scenarios.tick();
+            sessions.processWaitQueue();
             traffic.tick();
         } catch (Exception e) {
             log.warn("Traffic tick failed: {}", e.getMessage());
@@ -307,5 +327,6 @@ public class SimulationEngine {
     @Scheduled(fixedRate = 2000)
     public void healthTick() {
         healthManager.checkHealth();
+        autoScaler.evaluate(state);
     }
 }

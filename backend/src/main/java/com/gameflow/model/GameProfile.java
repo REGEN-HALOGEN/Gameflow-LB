@@ -18,12 +18,13 @@ public class GameProfile implements Serializable {
     private double vramLoad;         // 0..1
     private double networkLoad;      // 0..1
     private double cpuLoad;          // 0..1
+    private String requiredHardwareTier; // Phase 3: Hardware Affinity
 
     public GameProfile() {
     }
 
     public GameProfile(String id, String name, String genre, boolean latencySensitive,
-                       double gpuLoad, double vramLoad, double networkLoad, double cpuLoad) {
+                       double gpuLoad, double vramLoad, double networkLoad, double cpuLoad, String requiredHardwareTier) {
         this.id = id;
         this.name = name;
         this.genre = genre;
@@ -32,6 +33,7 @@ public class GameProfile implements Serializable {
         this.vramLoad = vramLoad;
         this.networkLoad = networkLoad;
         this.cpuLoad = cpuLoad;
+        this.requiredHardwareTier = requiredHardwareTier;
     }
 
     public String getId() { return id; }
@@ -50,4 +52,6 @@ public class GameProfile implements Serializable {
     public void setNetworkLoad(double networkLoad) { this.networkLoad = networkLoad; }
     public double getCpuLoad() { return cpuLoad; }
     public void setCpuLoad(double cpuLoad) { this.cpuLoad = cpuLoad; }
+    public String getRequiredHardwareTier() { return requiredHardwareTier; }
+    public void setRequiredHardwareTier(String requiredHardwareTier) { this.requiredHardwareTier = requiredHardwareTier; }
 }

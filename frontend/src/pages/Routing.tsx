@@ -28,6 +28,11 @@ const STRATEGIES: { id: RoutingStrategy; name: string; desc: string }[] = [
     name: 'Round Robin',
     desc: 'Cycles through eligible servers in order. Baseline for comparison.',
   },
+  {
+    id: 'COST_OPTIMIZED',
+    name: 'Cost Optimized',
+    desc: 'Favors servers with lower hourly cost while maintaining acceptable latency.',
+  },
 ];
 
 export default function Routing() {

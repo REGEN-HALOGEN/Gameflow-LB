@@ -26,7 +26,7 @@ function AnimatedStat({
 }
 
 export default function Overview() {
-  const { ready, backendUp, totals, decisions, events, inspectDecision, simState } = useSim();
+  const { ready, backendUp, totals, decisions, events, inspectDecision, simState, waitQueue } = useSim();
 
   if (!ready) {
     return (
@@ -53,8 +53,14 @@ export default function Overview() {
 
       {/* compact stat strip */}
       <section aria-label="System statistics">
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 border-b border-line pb-3">
+        <div className="grid grid-cols-3 xl:grid-cols-7 md:grid-cols-4 gap-3 border-b border-line pb-3">
           <AnimatedStat label="Active sessions" value={totals.activeSessions} />
+          <AnimatedStat 
+            label="Queued sessions" 
+            value={waitQueue.size} 
+            color={waitQueue.size > 0 ? '#F59E0B' : undefined} 
+            tip={`Sessions waiting for capacity. ${waitQueue.vipCount} VIPs in queue.`}
+          />
           <AnimatedStat label="Requests / sec" value={totals.requestsPerSec} decimals={1} />
           <AnimatedStat
             label="Avg latency"
@@ -80,6 +86,13 @@ export default function Overview() {
             decimals={2}
             color={totals.packetLoss > 5 ? '#EF4444' : totals.packetLoss > 1 ? '#F59E0B' : undefined}
             tip="Session-weighted mean packet loss. Above 5% a server is excluded from routing."
+          />
+          <AnimatedStat
+            label="Burn Rate"
+            value={totals.burnRate}
+            unit="$/hr"
+            decimals={2}
+            tip="Total cost per hour of all active servers."
           />
         </div>
       </section>

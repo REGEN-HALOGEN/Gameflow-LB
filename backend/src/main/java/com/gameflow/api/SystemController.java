@@ -40,11 +40,14 @@ public class SystemController {
                         || s.getState() == SessionState.MIGRATING)
                 .count();
 
-        double rps = 0, lat = 0, gpu = 0, loss = 0;
+        double rps = 0, lat = 0, gpu = 0, loss = 0, burnRate = 0;
         int healthy = 0, n = 0;
         for (ServerNode node : directory.all()) {
             if (node.getState() == ServerState.HEALTHY) {
                 healthy++;
+            }
+            if (node.getState() != ServerState.OFFLINE) {
+                burnRate += node.getCostPerHour();
             }
             var m = node.getMetrics();
             rps += m.getRequestsPerSec();
@@ -61,6 +64,7 @@ public class SystemController {
         totals.put("healthyServers", healthy);
         totals.put("avgGpu", n == 0 ? 0 : round1(gpu / n));
         totals.put("packetLoss", n == 0 ? 0 : round1(loss / n));
+        totals.put("burnRate", round1(burnRate));
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("status", "UP");

@@ -255,7 +255,7 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
       list.push({
         id: 'srv-' + id,
         type: 'server',
-        position: { x: xs[i % xs.length], y: 380 },
+        position: { x: xs[i % xs.length], y: 380 + Math.floor(i / xs.length) * 200 },
         // Stable data: the node component reads the live server from context.
         data: { serverId: id },
       });

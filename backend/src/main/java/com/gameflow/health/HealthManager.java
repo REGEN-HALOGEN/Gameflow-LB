@@ -171,7 +171,7 @@ public class HealthManager {
 
         EventSeverity severity = switch (next) {
             case HEALTHY -> EventSeverity.INFO;
-            case DEGRADED, RECOVERING -> EventSeverity.WARN;
+            case DEGRADED, RECOVERING, DRAINING -> EventSeverity.WARN;
             case UNHEALTHY, OFFLINE -> EventSeverity.ERROR;
         };
         events.publish("SERVER_STATE_CHANGED", severity,

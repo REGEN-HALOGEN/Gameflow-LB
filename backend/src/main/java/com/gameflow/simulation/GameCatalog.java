@@ -20,13 +20,13 @@ public class GameCatalog {
 
     public GameCatalog() {
         add(new GameProfile("NEON_STRIKE", "NEON STRIKE", "Competitive Shooter",
-                true, 0.55, 0.45, 0.85, 0.50));
+                true, 0.55, 0.45, 0.85, 0.50, "RTX_3080"));
         add(new GameProfile("ORBITAL_RACER", "ORBITAL RACER", "Arcade Racer",
-                true, 0.60, 0.40, 0.60, 0.55));
+                true, 0.60, 0.40, 0.60, 0.55, "RTX_3080"));
         add(new GameProfile("IRON_FRONT", "IRON FRONT", "Open World",
-                false, 0.90, 0.85, 0.50, 0.70));
+                false, 0.90, 0.85, 0.50, 0.70, "RTX_4090"));
         add(new GameProfile("NIGHT_CITY", "NIGHT CITY", "Open-World RPG",
-                false, 0.85, 0.80, 0.55, 0.65));
+                false, 0.85, 0.80, 0.55, 0.65, "RTX_4090"));
     }
 
     private void add(GameProfile profile) {

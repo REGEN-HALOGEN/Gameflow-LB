@@ -23,7 +23,7 @@ class WeightedGamingStrategyTest {
     }
 
     private ServerNode node(double cpu, double gpu, double packetLoss, int sessions, double jitter) {
-        ServerNode node = new ServerNode("GS-MUM-01", "MUMBAI", "Mumbai", 60);
+        ServerNode node = new ServerNode("GS-MUM-01", "MUMBAI", "Mumbai", 60, 2.50, "RTX_3080");
         ServerMetrics m = new ServerMetrics();
         m.setCpu(cpu);
         m.setGpu(gpu);

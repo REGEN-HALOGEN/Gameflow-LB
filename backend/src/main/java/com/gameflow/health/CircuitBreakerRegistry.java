@@ -27,4 +27,12 @@ public class CircuitBreakerRegistry {
     public void resetAll() {
         breakers.values().forEach(CircuitBreaker::reset);
     }
+
+    public void register(String serverId, EventBus events, WsEventPublisher ws) {
+        breakers.putIfAbsent(serverId, new CircuitBreaker(serverId, events, ws));
+    }
+
+    public void unregister(String serverId) {
+        breakers.remove(serverId);
+    }
 }

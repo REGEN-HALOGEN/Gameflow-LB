@@ -55,6 +55,7 @@ export interface SimState {
   inspectedDecision: RoutingDecision | null;
   activeRoute: ActiveRoute | null;
   lastMetricAt: number;
+  waitQueue: import('../types').WaitQueueInfo;
 }
 
 const INITIAL_TOTALS: Totals = {
@@ -64,6 +65,7 @@ const INITIAL_TOTALS: Totals = {
   healthyServers: 0,
   avgGpu: 0,
   packetLoss: 0,
+  burnRate: 0,
 };
 
 const initialState: SimState = {
@@ -86,6 +88,7 @@ const initialState: SimState = {
   inspectedDecision: null,
   activeRoute: null,
   lastMetricAt: 0,
+  waitQueue: { size: 0, vipCount: 0 },
 };
 
 // ---------------------------------------------------------------------------
@@ -115,7 +118,10 @@ type Action =
   | { type: 'DRAWER'; serverId: string | null }
   | { type: 'INSPECT'; decision: RoutingDecision | null }
   | { type: 'CLEAR_ROUTE'; decisionId: string }
-  | { type: 'RMI_STATUS_CHANGED'; serverId: string; rmiStatus: RmiStatus };
+  | { type: 'RMI_STATUS_CHANGED'; serverId: string; rmiStatus: RmiStatus }
+  | { type: 'SERVER_ADDED'; server: ServerNode }
+  | { type: 'SERVER_REMOVED'; serverId: string }
+  | { type: 'WAIT_QUEUE_UPDATED'; size: number; vipCount: number };
 
 function patchServer(state: SimState, id: string, patch: Partial<ServerNode>): SimState {
   const s = state.servers[id];
@@ -237,6 +243,17 @@ function reducer(state: SimState, action: Action): SimState {
         : state;
     case 'RMI_STATUS_CHANGED':
       return patchServer(state, action.serverId, { rmiStatus: action.rmiStatus });
+    case 'SERVER_ADDED': {
+      const servers = { ...state.servers, [action.server.id]: action.server };
+      return { ...state, servers, serverIds: Object.keys(servers) };
+    }
+    case 'SERVER_REMOVED': {
+      const servers = { ...state.servers };
+      delete servers[action.serverId];
+      return { ...state, servers, serverIds: Object.keys(servers) };
+    }
+    case 'WAIT_QUEUE_UPDATED':
+      return { ...state, waitQueue: { size: action.size, vipCount: action.vipCount } };
     default:
       return state;
   }
@@ -255,7 +272,11 @@ function computeTotals(servers: Record<string, ServerNode>): { totals: Totals; t
   let plSum = 0;
   let healthyServers = 0;
   let throughput = 0;
+  let burnRate = 0;
   for (const s of list) {
+    if (s.state !== 'OFFLINE') {
+      burnRate += s.costPerHour || 0;
+    }
     const m = s.metrics;
     activeSessions += m.sessions;
     requestsPerSec += m.requestsPerSec;
@@ -280,6 +301,7 @@ function computeTotals(servers: Record<string, ServerNode>): { totals: Totals; t
       healthyServers,
       avgGpu: list.length > 0 ? gpuSum / list.length : 0,
       packetLoss: plW > 0 ? plSum / plW : 0,
+      burnRate,
     },
     throughput,
   };
@@ -411,6 +433,16 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
         case 'RMI_STATUS_CHANGED':
           if (msg.serverId && msg.rmiStatus)
             dispatch({ type: 'RMI_STATUS_CHANGED', serverId: msg.serverId, rmiStatus: msg.rmiStatus });
+          break;
+        case 'SERVER_ADDED':
+          if (msg.server) dispatch({ type: 'SERVER_ADDED', server: msg.server });
+          break;
+        case 'SERVER_REMOVED':
+          if (msg.serverId) dispatch({ type: 'SERVER_REMOVED', serverId: msg.serverId });
+          break;
+        case 'WAIT_QUEUE_UPDATED':
+          if (msg.size !== undefined && msg.vipCount !== undefined)
+            dispatch({ type: 'WAIT_QUEUE_UPDATED', size: msg.size, vipCount: msg.vipCount });
           break;
         default:
           break;

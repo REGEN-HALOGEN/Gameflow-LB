@@ -38,6 +38,7 @@ public class RoutingEngine {
     private final GameServerRegistry registry;
     private final EventBus events;
     private final WsEventPublisher ws;
+    private final com.gameflow.simulation.GameCatalog gameCatalog;
 
     private final Map<com.gameflow.model.RoutingStrategy, RoutingStrategy> strategies = new HashMap<>();
     private volatile com.gameflow.model.RoutingStrategy activeStrategy =
@@ -50,11 +51,13 @@ public class RoutingEngine {
                          GameServerRegistry registry,
                          EventBus events,
                          WsEventPublisher ws,
+                         com.gameflow.simulation.GameCatalog gameCatalog,
                          List<RoutingStrategy> strategyBeans) {
         this.directory = directory;
         this.registry = registry;
         this.events = events;
         this.ws = ws;
+        this.gameCatalog = gameCatalog;
         for (RoutingStrategy s : strategyBeans) {
             strategies.put(s.getType(), s);
         }
@@ -81,6 +84,9 @@ public class RoutingEngine {
         RoutingStrategy strategy = strategies.get(activeStrategy);
         List<ServerNode> nodes = new ArrayList<>(directory.all());
 
+        com.gameflow.model.GameProfile gameProfile = gameCatalog.byName(request.getGame());
+        String reqHardware = gameProfile != null ? gameProfile.getRequiredHardwareTier() : null;
+
         List<CandidateScore> candidates = new ArrayList<>();
         for (int i = 0; i < nodes.size(); i++) {
             ServerNode node = nodes.get(i);
@@ -94,6 +100,11 @@ public class RoutingEngine {
                         + WeightedGamingStrategy.INELIGIBLE_PENALTY));
                 candidate.getScoreBreakdown().merge("penalty",
                         WeightedGamingStrategy.INELIGIBLE_PENALTY, Double::sum);
+            } else if (reqHardware != null && !reqHardware.equals(node.getHardwareTier())) {
+                candidate.setEligible(false);
+                candidate.setPenaltyReason("HARDWARE MISMATCH");
+                candidate.setScore(round1(candidate.getScore() + WeightedGamingStrategy.INELIGIBLE_PENALTY));
+                candidate.getScoreBreakdown().merge("penalty", WeightedGamingStrategy.INELIGIBLE_PENALTY, Double::sum);
             }
             // Eligibility for ineligible candidates is already set by the strategy;
             // keep the metrics snapshot on the candidate honest.

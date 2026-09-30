@@ -21,6 +21,7 @@ public class GameSession implements Serializable {
     private SessionState state;
     private double latencyMs;
     private long startTime;
+    private boolean isVip; // Phase 2: VIP Quality-of-Service
 
     public GameSession() {
     }
@@ -45,6 +46,8 @@ public class GameSession implements Serializable {
     public void setLatencyMs(double latencyMs) { this.latencyMs = latencyMs; }
     public long getStartTime() { return startTime; }
     public void setStartTime(long startTime) { this.startTime = startTime; }
+    public boolean isVip() { return isVip; }
+    public void setVip(boolean isVip) { this.isVip = isVip; }
 
     /** Live-computed at serialization time, so it never goes stale. */
     public long getDurationSec() {

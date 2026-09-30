@@ -19,6 +19,7 @@ export const SERVER_STATE_COLOR: Record<ServerState, string> = {
   UNHEALTHY: '#EF4444',
   OFFLINE: '#6B7280',
   RECOVERING: '#4F8CFF',
+  DRAINING: '#A855F7',
 };
 
 export const CIRCUIT_COLOR: Record<CircuitState, string> = {

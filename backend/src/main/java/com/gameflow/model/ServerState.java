@@ -6,5 +6,6 @@ public enum ServerState {
     DEGRADED,
     UNHEALTHY,
     OFFLINE,
-    RECOVERING
+    RECOVERING,
+    DRAINING
 }

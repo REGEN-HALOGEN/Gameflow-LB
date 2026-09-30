@@ -183,4 +183,26 @@ public class GameServerRegistry {
             stubs.put(serverId, impl);
         }
     }
+
+    /** Dynamically add and bind a new server. */
+    public void registerNewServer(String serverId) {
+        bindFreshServer(serverId);
+        log.info("Dynamically registered new server {}", serverId);
+    }
+
+    /** Unbind and remove a dynamically added server. */
+    public void unregisterServer(String serverId) {
+        GameServerImpl old = impls.remove(serverId);
+        if (old != null && rmiAvailable) {
+            try {
+                UnicastRemoteObject.unexportObject(old, true);
+            } catch (Exception ignored) {}
+            try {
+                Naming.unbind(bindName(serverId));
+            } catch (Exception ignored) {}
+        }
+        stubs.remove(serverId);
+        crashed.remove(serverId);
+        log.info("Dynamically unregistered server {}", serverId);
+    }
 }

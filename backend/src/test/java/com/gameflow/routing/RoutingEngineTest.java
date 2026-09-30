@@ -34,7 +34,8 @@ class RoutingEngineTest {
                 new LeastSessionsStrategy(),
                 new LowestLatencyStrategy(),
                 new RoundRobinStrategy());
-        engine = new RoutingEngine(directory, registry, events, ws, strategies);
+        com.gameflow.simulation.GameCatalog catalog = new com.gameflow.simulation.GameCatalog();
+        engine = new RoutingEngine(directory, registry, events, ws, catalog, strategies);
     }
 
     private PlayerRequest request() {

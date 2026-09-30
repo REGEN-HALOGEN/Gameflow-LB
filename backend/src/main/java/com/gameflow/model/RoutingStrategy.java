@@ -8,5 +8,6 @@ public enum RoutingStrategy {
     WEIGHTED_GAMING,
     LEAST_SESSIONS,
     LOWEST_LATENCY,
-    ROUND_ROBIN
+    ROUND_ROBIN,
+    COST_OPTIMIZED
 }

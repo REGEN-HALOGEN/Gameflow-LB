@@ -13,6 +13,7 @@ export interface Totals {
   healthyServers: number;
   avgGpu: number;
   packetLoss: number;
+  burnRate: number;
 }
 
 export const serverHistory = new Map<string, MetricPoint[]>();

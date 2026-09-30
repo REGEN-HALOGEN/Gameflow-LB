@@ -11,6 +11,8 @@ public class ServerNode {
     private final String region;     // MUMBAI / SINGAPORE / BANGALORE
     private final String city;       // Mumbai / Singapore / Bangalore
     private final int capacity;
+    private final double costPerHour;
+    private final String hardwareTier; // e.g. "RTX_3080", "RTX_4090"
 
     private volatile ServerState state = ServerState.HEALTHY;
     private volatile CircuitState circuitState = CircuitState.CLOSED;
@@ -19,17 +21,21 @@ public class ServerNode {
     private volatile double weight = 1.0;
     private volatile ServerMetrics metrics = new ServerMetrics();
 
-    public ServerNode(String id, String region, String city, int capacity) {
+    public ServerNode(String id, String region, String city, int capacity, double costPerHour, String hardwareTier) {
         this.id = id;
         this.region = region;
         this.city = city;
         this.capacity = capacity;
+        this.costPerHour = costPerHour;
+        this.hardwareTier = hardwareTier;
     }
 
     public String getId() { return id; }
     public String getRegion() { return region; }
     public String getCity() { return city; }
     public int getCapacity() { return capacity; }
+    public double getCostPerHour() { return costPerHour; }
+    public String getHardwareTier() { return hardwareTier; }
     public ServerState getState() { return state; }
     public void setState(ServerState state) { this.state = state; }
     public CircuitState getCircuitState() { return circuitState; }
