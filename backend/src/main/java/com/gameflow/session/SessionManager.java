@@ -117,6 +117,10 @@ public class SessionManager {
     public void processWaitQueue() {
         if (waitQueue.isEmpty()) return;
         
+        long now = System.currentTimeMillis();
+        // Remove requests older than 30s
+        waitQueue.removeIf(req -> now - req.getQueuedAt() > 30000);
+        
         // Try to place up to 5 queued sessions per tick to avoid overwhelming
         int attempts = Math.min(5, waitQueue.size());
         List<PlayerRequest> requeue = new ArrayList<>();
@@ -127,11 +131,10 @@ public class SessionManager {
             
             GameSession s = createSession(req);
             if (s == null) {
-                // Not placed, don't put back in waitQueue immediately because createSession already did!
-                // Wait, createSession calls waitQueue.offer(request) again if it fails!
-                // So it's already back in the queue.
+                // If it failed to place again, createSession already put it back in waitQueue
             }
         }
+        broadcastQueueState();
     }
 
     private void broadcastQueueState() {

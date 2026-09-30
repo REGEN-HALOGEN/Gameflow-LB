@@ -104,7 +104,7 @@ export default function Metrics() {
   return (
     <div className="p-4">
       <div className="flex items-center gap-3 mb-3 flex-wrap">
-        <h1 className="text-[13px] font-semibold text-zinc-200">Metrics</h1>
+        <h1 className="text-[13px] font-semibold text-zinc-200">Analytics</h1>
         <span className="font-mono text-[10px] text-zinc-600">
           rolling window · sourced from backend history + live ws flush
         </span>
@@ -209,6 +209,30 @@ export default function Metrics() {
               <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={44} />
               <Tooltip content={<ChartTip />} />
               <Line type="monotone" dataKey="packetLoss" name="loss %" stroke="#EF4444" strokeWidth={1.4} dot={false} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartShell>
+
+        <ChartShell title="Total Active Sessions" unit="sessions" tip="Aggregate of all active game sessions in the cluster.">
+          <ResponsiveContainer>
+            <LineChart data={agg} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
+              <CartesianGrid stroke="#141a21" vertical={false} />
+              {xAxis}
+              <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={44} />
+              <Tooltip content={<ChartTip />} />
+              <Line type="monotone" dataKey="activeSessions" name="sessions" stroke="#A78BFA" strokeWidth={1.4} dot={false} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartShell>
+
+        <ChartShell title="Cluster Burn Rate" unit="$/hr" tip="Total hourly cost of all active game servers.">
+          <ResponsiveContainer>
+            <LineChart data={agg} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
+              <CartesianGrid stroke="#141a21" vertical={false} />
+              {xAxis}
+              <YAxis tick={axisStyle} tickLine={false} axisLine={false} width={44} />
+              <Tooltip content={<ChartTip />} />
+              <Line type="stepAfter" dataKey="burnRate" name="$/hr" stroke="#F472B6" strokeWidth={1.4} dot={false} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         </ChartShell>

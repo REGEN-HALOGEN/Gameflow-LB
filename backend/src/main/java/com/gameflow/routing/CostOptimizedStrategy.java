@@ -35,7 +35,7 @@ public class CostOptimizedStrategy implements RoutingStrategy {
             penaltyReason = "LATENCY SLA MISS (>60ms)";
         }
         
-        double score = node.getCostPerHour();
+        double score = node.getCostPerHour() + (playerLatencyMs / 1000.0);
         if (penaltyReason != null) {
             score += WeightedGamingStrategy.INELIGIBLE_PENALTY;
             breakdown.put("penalty", WeightedGamingStrategy.INELIGIBLE_PENALTY);

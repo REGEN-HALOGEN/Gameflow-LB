@@ -294,7 +294,18 @@ public class SimulationEngine {
             }
         }
         if (!latest.isEmpty()) {
-            history.recordTick(latest);
+            double burnRate = 0;
+            for (ServerNode node : directory.all()) {
+                if (node.getState() != ServerState.OFFLINE) {
+                    burnRate += node.getCostPerHour();
+                }
+            }
+            long activeSessions = sessions.all().stream()
+                .filter(s -> s.getState() == com.gameflow.model.SessionState.ACTIVE
+                        || s.getState() == com.gameflow.model.SessionState.CREATING
+                        || s.getState() == com.gameflow.model.SessionState.MIGRATING)
+                .count();
+            history.recordTick(latest, activeSessions, burnRate);
         }
     }
 

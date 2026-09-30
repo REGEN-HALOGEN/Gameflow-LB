@@ -24,6 +24,8 @@ export const aggHistory = {
   avgLatencyMs: [] as number[],
   packetLoss: [] as number[],
   throughputMbps: [] as number[],
+  activeSessions: [] as number[],
+  burnRate: [] as number[],
 };
 
 function trim<T>(arr: T[]): T[] {
@@ -36,12 +38,14 @@ export function seedHistory(h: HistoryPayload): void {
   for (const [id, pts] of Object.entries(h.servers || {})) {
     serverHistory.set(id, trim((pts || []).slice()));
   }
-  const a = h.aggregate || { t: [], requestsPerSec: [], avgLatencyMs: [], packetLoss: [], throughputMbps: [] };
+  const a = h.aggregate || { t: [], requestsPerSec: [], avgLatencyMs: [], packetLoss: [], throughputMbps: [], activeSessions: [], burnRate: [] };
   aggHistory.t = trim((a.t || []).slice());
   aggHistory.requestsPerSec = trim((a.requestsPerSec || []).slice());
   aggHistory.avgLatencyMs = trim((a.avgLatencyMs || []).slice());
   aggHistory.packetLoss = trim((a.packetLoss || []).slice());
   aggHistory.throughputMbps = trim((a.throughputMbps || []).slice());
+  aggHistory.activeSessions = trim((a.activeSessions || []).slice());
+  aggHistory.burnRate = trim((a.burnRate || []).slice());
 }
 
 export function pushMetric(serverId: string, m: ServerMetrics): void {
@@ -73,11 +77,15 @@ export function pushAggregate(t: number, totals: Totals, throughputMbps: number)
   aggHistory.avgLatencyMs.push(totals.avgLatencyMs);
   aggHistory.packetLoss.push(totals.packetLoss);
   aggHistory.throughputMbps.push(throughputMbps);
+  aggHistory.activeSessions.push(totals.activeSessions);
+  aggHistory.burnRate.push(totals.burnRate);
   trim(aggHistory.t);
   trim(aggHistory.requestsPerSec);
   trim(aggHistory.avgLatencyMs);
   trim(aggHistory.packetLoss);
   trim(aggHistory.throughputMbps);
+  trim(aggHistory.activeSessions);
+  trim(aggHistory.burnRate);
 }
 
 /** Slice aggregate series to [since, +inf), returned as row objects for recharts. */
@@ -93,6 +101,8 @@ export function aggRows(since: number): Array<Record<string, number>> {
       avgLatencyMs: aggHistory.avgLatencyMs[i],
       packetLoss: aggHistory.packetLoss[i],
       throughputMbps: aggHistory.throughputMbps[i],
+      activeSessions: aggHistory.activeSessions[i],
+      burnRate: aggHistory.burnRate[i],
     });
   }
   return out;

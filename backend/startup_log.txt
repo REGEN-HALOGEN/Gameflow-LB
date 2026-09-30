@@ -1,1 +1,6 @@
 [INFO] Injecting newly compiled IDE classes into the JAR...
+-> backend:  java -Djava.rmi.server.hostname=127.0.0.1 -jar "d:\WORK\PROJECTS\gameflow-lb\backend\target\gameflow-lb-1.0.0.jar"  (http://localhost:8080)
+-> frontend: npm run dev         (http://localhost:5173)
+Waiting for backend...
+[OK] backend up
+[OK] open http://localhost:5173 and press Start Simulation

@@ -23,7 +23,7 @@ public class HistoryService {
     private final Deque<AggregatePoint> aggregate = new ArrayDeque<>();
 
     /** Record one tick's metrics for every server (called once per second). */
-    public synchronized void recordTick(Map<String, ServerMetrics> latestByServer) {
+    public synchronized void recordTick(Map<String, ServerMetrics> latestByServer, long activeSessions, double burnRate) {
         long now = System.currentTimeMillis();
         double rpsSum = 0;
         double latSum = 0;
@@ -47,7 +47,7 @@ public class HistoryService {
             n++;
         }
         if (n > 0) {
-            aggregate.addLast(new AggregatePoint(now, rpsSum, latSum / n, lossSum / n, throughputSum));
+            aggregate.addLast(new AggregatePoint(now, rpsSum, latSum / n, lossSum / n, throughputSum, activeSessions, burnRate));
             while (aggregate.size() > CAPACITY) {
                 aggregate.removeFirst();
             }
@@ -71,6 +71,8 @@ public class HistoryService {
         List<Double> avgLat = new ArrayList<>();
         List<Double> loss = new ArrayList<>();
         List<Double> throughput = new ArrayList<>();
+        List<Long> activeSess = new ArrayList<>();
+        List<Double> burn = new ArrayList<>();
         for (AggregatePoint a : aggregate) {
             if (a.t >= cutoff) {
                 t.add(a.t);
@@ -78,6 +80,8 @@ public class HistoryService {
                 avgLat.add(a.avgLatencyMs);
                 loss.add(a.packetLoss);
                 throughput.add(a.throughputMbps);
+                activeSess.add(a.activeSessions);
+                burn.add(a.burnRate);
             }
         }
         Map<String, List<? extends Number>> agg = new LinkedHashMap<>();
@@ -86,6 +90,8 @@ public class HistoryService {
         agg.put("avgLatencyMs", avgLat);
         agg.put("packetLoss", loss);
         agg.put("throughputMbps", throughput);
+        agg.put("activeSessions", activeSess);
+        agg.put("burnRate", burn);
         return new HistoryResponse(servers, agg);
     }
 
@@ -95,7 +101,7 @@ public class HistoryService {
     }
 
     private record AggregatePoint(long t, double requestsPerSec, double avgLatencyMs,
-                                  double packetLoss, double throughputMbps) {
+                                  double packetLoss, double throughputMbps, long activeSessions, double burnRate) {
     }
 
     /** Shape required by CONTRACT section 3 for /api/metrics/history. */

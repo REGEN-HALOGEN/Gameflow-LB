@@ -20,7 +20,7 @@ const ITEMS = [
   { to: '/sessions', label: 'Sessions', icon: Gamepad2 },
   { to: '/servers', label: 'Game Servers', icon: Server },
   { to: '/routing', label: 'Routing', icon: Route },
-  { to: '/metrics', label: 'Metrics', icon: BarChart3 },
+  { to: '/metrics', label: 'Analytics', icon: BarChart3 },
   { to: '/events', label: 'Events', icon: ListOrdered },
   { to: '/scenarios', label: 'Demo Scenarios', icon: FlaskConical },
   { to: '/architecture', label: 'System Architecture', icon: Boxes },
