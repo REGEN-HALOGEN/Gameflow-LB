@@ -227,9 +227,9 @@ player Bangalore → GS-BLR-01: ~10, GS-MUM-*: ~35, GS-SIN-01: ~60
 player Chennai → GS-BLR-01: ~20, GS-MUM-*: ~30, GS-SIN-01: ~55
 player Hyderabad → GS-MUM-*: ~28, GS-BLR-01: ~25, GS-SIN-01: ~62
 
-Games (GameProfile): NEON STRIKE (competitive shooter, latency-sensitive),
-ORBITAL RACER (racer), IRON FRONT (open-world, GPU/VRAM heavy), NIGHT CITY
-(open-world RPG, GPU heavy).
+Games (GameProfile): VALORANT (competitive shooter, latency-sensitive),
+FORZA HORIZON 5 (racer), WITCHER 3 (action RPG), CYBERPUNK 2077 (open-world RPG, GPU heavy),
+GTA 6 (open world action, ultra-heavy GPU).
 
 Scenarios (ids): `normal-traffic`, `gpu-saturation`, `latency-spike`,
 `packet-loss`, `server-failure`, `server-recovery`, `traffic-surge`.

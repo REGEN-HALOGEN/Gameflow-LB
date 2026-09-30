@@ -19,19 +19,22 @@ public class GameCatalog {
     private final Map<String, GameProfile> byName = new LinkedHashMap<>();
 
     public GameCatalog() {
-        add(new GameProfile("NEON_STRIKE", "NEON STRIKE", "Competitive Shooter",
+        add(new GameProfile("VALORANT", "VALORANT", "Competitive Shooter",
                 true, 0.55, 0.45, 0.85, 0.50, "RTX_3080"));
-        add(new GameProfile("ORBITAL_RACER", "ORBITAL RACER", "Arcade Racer",
-                true, 0.60, 0.40, 0.60, 0.55, "RTX_3080"));
-        add(new GameProfile("IRON_FRONT", "IRON FRONT", "Open World",
-                false, 0.90, 0.85, 0.50, 0.70, "RTX_4090"));
-        add(new GameProfile("NIGHT_CITY", "NIGHT CITY", "Open-World RPG",
-                false, 0.85, 0.80, 0.55, 0.65, "RTX_4090"));
+        add(new GameProfile("FORZA_HORIZON_5", "FORZA HORIZON 5", "Arcade Racer",
+                true, 0.60, 0.55, 0.60, 0.55, "RTX_3080"));
+        add(new GameProfile("WITCHER_3", "WITCHER 3", "Action RPG",
+                false, 0.80, 0.75, 0.50, 0.65, "RTX_3080"));
+        add(new GameProfile("CYBERPUNK_2077", "CYBERPUNK 2077", "Open-World RPG",
+                false, 0.90, 0.85, 0.55, 0.70, "RTX_4090"));
+        add(new GameProfile("GTA_VI", "GTA 6", "Open World Action",
+                false, 0.95, 0.90, 0.60, 0.75, "RTX_4090"));
     }
 
     private void add(GameProfile profile) {
         games.add(profile);
         byName.put(profile.getName(), profile);
+        byName.put(profile.getId(), profile);
     }
 
     public List<GameProfile> all() {

@@ -83,7 +83,7 @@ class SessionManagerTest {
     }
 
     private PlayerRequest request(String playerId) {
-        return new PlayerRequest(playerId, "Mumbai", "NEON STRIKE", "1080p", 60);
+        return new PlayerRequest(playerId, "Mumbai", "CYBERPUNK 2077", "1080p", 60);
     }
 
     @Test

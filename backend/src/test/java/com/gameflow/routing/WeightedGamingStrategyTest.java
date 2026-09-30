@@ -19,7 +19,7 @@ class WeightedGamingStrategyTest {
     @BeforeEach
     void setUp() {
         strategy = new WeightedGamingStrategy();
-        request = new PlayerRequest("P-1042", "Mumbai", "NEON STRIKE", "1080p", 60);
+        request = new PlayerRequest("P-1042", "Mumbai", "CYBERPUNK 2077", "1080p", 60);
     }
 
     private ServerNode node(double cpu, double gpu, double packetLoss, int sessions, double jitter) {

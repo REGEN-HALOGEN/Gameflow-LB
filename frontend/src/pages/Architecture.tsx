@@ -78,7 +78,7 @@ const NODES: Record<string, ArchNode> = {
     id: 'sim',
     title: 'SimulationEngine',
     sub: 'traffic + metric simulation',
-    desc: 'Generates the synthetic world: player arrivals from six regions with a realistic base-latency matrix, per-game workload profiles (NEON STRIKE is latency-sensitive, IRON FRONT is GPU-heavy), and bounded random-walk metric evolution so values drift plausibly instead of jumping.',
+    desc: 'Generates the synthetic world: player arrivals from six regions with a realistic base-latency matrix, per-game workload profiles (VALORANT is latency-sensitive, CYBERPUNK 2077 is GPU-heavy), and bounded random-walk metric evolution so values drift plausibly instead of jumping.',
     tags: ['traffic generator', 'scenario engine'],
   },
   rmi: {

@@ -39,7 +39,7 @@ class RoutingEngineTest {
     }
 
     private PlayerRequest request() {
-        return new PlayerRequest("P-1", "Mumbai", "NEON STRIKE", "1080p", 60);
+        return new PlayerRequest("P-1", "Mumbai", "VALORANT", "1080p", 60);
     }
 
     @Test
