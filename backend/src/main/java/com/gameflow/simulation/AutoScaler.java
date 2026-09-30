@@ -109,12 +109,16 @@ public class AutoScaler {
     }
 
     private void scaleUp() {
-        String id = "GS-MUM-0" + (2 + nextId.getAndIncrement()); // e.g. GS-MUM-03
-        ServerNode newNode = new ServerNode(id, "MUMBAI", "Mumbai", 60, 2.50, "RTX_3080");
+        int idx = 2 + nextId.getAndIncrement();
+        String id = "GS-MUM-0" + idx; // e.g. GS-MUM-03
+        boolean need4090 = (idx % 2 == 1);
+        String tier = need4090 ? "RTX_4090" : "RTX_3080";
+        double cost = need4090 ? 4.50 : 2.50;
+        ServerNode newNode = new ServerNode(id, "MUMBAI", "Mumbai", 60, cost, tier);
         directory.add(newNode);
         registry.registerNewServer(id);
         breakers.register(id, events, ws);
-        events.info("SERVER_ADDED", "Scale up triggered, added " + id, id);
+        events.info("SERVER_ADDED", "Scale up triggered, added " + id + " (" + tier + ")", id);
         ws.publish("SERVER_ADDED", Map.of("server", newNode));
     }
 

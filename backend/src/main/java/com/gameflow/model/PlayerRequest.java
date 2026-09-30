@@ -18,6 +18,7 @@ public class PlayerRequest implements Serializable {
     private String sessionId;      // assigned by SessionManager before the RMI call
     private boolean isVip;
     private long queuedAt;
+    private long lastAttemptAt;
 
     public PlayerRequest() {
     }
@@ -47,4 +48,6 @@ public class PlayerRequest implements Serializable {
     public void setVip(boolean vip) { isVip = vip; }
     public long getQueuedAt() { return queuedAt; }
     public void setQueuedAt(long queuedAt) { this.queuedAt = queuedAt; }
+    public long getLastAttemptAt() { return lastAttemptAt; }
+    public void setLastAttemptAt(long lastAttemptAt) { this.lastAttemptAt = lastAttemptAt; }
 }

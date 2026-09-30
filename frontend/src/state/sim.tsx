@@ -158,7 +158,7 @@ function reducer(state: SimState, action: Action): SimState {
         simState: p.system.simulationState,
         speed: p.system.speed,
         strategy: p.system.strategy,
-        totals: { ...p.system.totals },
+        totals: { ...p.system.totals, burnRate: p.system.totals.burnRate ?? 0 },
         servers,
         serverIds: p.servers.map((s) => s.id),
         sessions: p.sessions,

@@ -6,8 +6,10 @@ import { fmt, fmtTimeMs } from '../lib/format';
 import { SectionTitle } from './ui';
 import type { CandidateScore, RoutingDecision } from '../types';
 
-const BREAKDOWN_ROWS: { key: keyof CandidateScore['scoreBreakdown']; label: string; color: string }[] = [
-  { key: 'latency', label: 'Latency × 0.35', color: '#4F8CFF' },
+const BREAKDOWN_ROWS: { key: string; label: string; color: string }[] = [
+  { key: 'latency', label: 'Latency', color: '#4F8CFF' },
+  { key: 'costPerHour', label: 'Cost ($/hr)', color: '#38BDF8' },
+  { key: 'slaPenalty', label: 'SLA Penalty (>60ms)', color: '#FB923C' },
   { key: 'cpu', label: 'CPU × 0.20', color: '#22C55E' },
   { key: 'gpu', label: 'GPU × 0.20', color: '#A78BFA' },
   { key: 'packetLoss', label: 'Packet loss × 0.10', color: '#F59E0B' },
@@ -57,13 +59,13 @@ function Candidate({ c, selected, open, globalMax, onToggle }: { c: CandidateSco
             Score breakdown — weighted contributions (lower is better)
           </div>
           <div className="space-y-1.5">
-            {BREAKDOWN_ROWS.map(({ key, label, color }) => {
-              const v = c.scoreBreakdown[key];
+            {BREAKDOWN_ROWS.filter(({ key }) => c.scoreBreakdown[key] !== undefined).map(({ key, label, color }) => {
+              const v = c.scoreBreakdown[key] ?? 0;
               return (
                 <div key={key} className="flex items-center gap-2">
-                  <span className="font-mono text-[10px] text-zinc-500 w-[118px]">{label}</span>
+                  <span className="font-mono text-[10px] text-zinc-500 w-[124px] truncate">{label}</span>
                   <div className="flex-1 h-[4px] bg-line rounded-[2px] overflow-hidden">
-                    <div className="h-full rounded-[2px]" style={{ width: (v / globalMax) * 100 + '%', background: color }} />
+                    <div className="h-full rounded-[2px]" style={{ width: Math.min(100, (v / (globalMax || 1)) * 100) + '%', background: color }} />
                   </div>
                   <span className="font-mono text-[10px] text-zinc-300 w-10 text-right tnum">{fmt(v)}</span>
                 </div>
@@ -92,7 +94,7 @@ export default function DecisionInspector() {
   );
   // Global max across ALL candidates and ALL breakdown keys so bars are comparable.
   const globalMax = useMemo(
-    () => Math.max(1, ...(d?.candidates ?? []).flatMap((c) => BREAKDOWN_ROWS.map((r) => c.scoreBreakdown[r.key]))),
+    () => Math.max(1, ...(d?.candidates ?? []).flatMap((c) => BREAKDOWN_ROWS.map((r) => c.scoreBreakdown[r.key] ?? 0))),
     [d],
   );
 

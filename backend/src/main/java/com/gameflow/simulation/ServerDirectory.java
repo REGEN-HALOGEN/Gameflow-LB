@@ -21,7 +21,7 @@ public class ServerDirectory {
 
     public ServerDirectory() {
         add(new ServerNode("GS-MUM-01", "MUMBAI", "Mumbai", 60, 2.50, "RTX_3080"));
-        add(new ServerNode("GS-MUM-02", "MUMBAI", "Mumbai", 60, 2.50, "RTX_3080"));
+        add(new ServerNode("GS-MUM-02", "MUMBAI", "Mumbai", 60, 4.50, "RTX_4090"));
         add(new ServerNode("GS-SIN-01", "SINGAPORE", "Singapore", 80, 5.00, "RTX_4090"));
         add(new ServerNode("GS-BLR-01", "BANGALORE", "Bangalore", 60, 2.50, "RTX_3080"));
     }

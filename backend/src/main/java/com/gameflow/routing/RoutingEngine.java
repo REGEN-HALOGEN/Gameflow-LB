@@ -100,7 +100,7 @@ public class RoutingEngine {
                         + WeightedGamingStrategy.INELIGIBLE_PENALTY));
                 candidate.getScoreBreakdown().merge("penalty",
                         WeightedGamingStrategy.INELIGIBLE_PENALTY, Double::sum);
-            } else if (reqHardware != null && !reqHardware.equals(node.getHardwareTier())) {
+            } else if (!isHardwareCompatible(reqHardware, node.getHardwareTier())) {
                 candidate.setEligible(false);
                 candidate.setPenaltyReason("HARDWARE MISMATCH");
                 candidate.setScore(round1(candidate.getScore() + WeightedGamingStrategy.INELIGIBLE_PENALTY));
@@ -186,6 +186,17 @@ public class RoutingEngine {
 
     public synchronized void clearDecisions() {
         decisions.clear();
+    }
+
+    public static boolean isHardwareCompatible(String requiredTier, String serverTier) {
+        if (requiredTier == null || requiredTier.isEmpty()) return true;
+        if (serverTier == null) return false;
+        if (requiredTier.equals(serverTier)) return true;
+        // Higher-tier GPU nodes can fulfill lower-tier game requirements
+        if ("RTX_3080".equals(requiredTier) && "RTX_4090".equals(serverTier)) {
+            return true;
+        }
+        return false;
     }
 
     private static double round1(double v) {

@@ -64,13 +64,16 @@ export interface WaitQueueInfo {
 }
 
 export interface ScoreBreakdown {
-  latency: number;
-  cpu: number;
-  gpu: number;
-  packetLoss: number;
-  sessions: number;
-  jitter: number;
-  penalty: number;
+  latency?: number;
+  cpu?: number;
+  gpu?: number;
+  packetLoss?: number;
+  sessions?: number;
+  jitter?: number;
+  penalty?: number;
+  costPerHour?: number;
+  slaPenalty?: number;
+  [key: string]: number | undefined;
 }
 
 export interface CandidateScore {
@@ -171,6 +174,8 @@ export interface HistoryPayload {
     avgLatencyMs: number[];
     packetLoss: number[];
     throughputMbps: number[];
+    activeSessions?: number[];
+    burnRate?: number[];
   };
 }
 
@@ -188,5 +193,6 @@ export interface SystemInfo {
     healthyServers: number;
     avgGpu: number;
     packetLoss: number;
+    burnRate?: number;
   };
 }

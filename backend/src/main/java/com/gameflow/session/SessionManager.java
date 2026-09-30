@@ -104,9 +104,11 @@ public class SessionManager {
         }
 
         // If we exhausted all candidates or none were available, queue it.
+        long now = System.currentTimeMillis();
         if (request.getQueuedAt() == 0) {
-            request.setQueuedAt(System.currentTimeMillis());
+            request.setQueuedAt(now);
         }
+        request.setLastAttemptAt(now);
         waitQueue.offer(request);
         events.info("SESSION_QUEUED", 
             request.getPlayerId() + " added to wait queue (size: " + waitQueue.size() + ")", null);
@@ -121,18 +123,23 @@ public class SessionManager {
         // Remove requests older than 30s
         waitQueue.removeIf(req -> now - req.getQueuedAt() > 30000);
         
-        // Try to place up to 5 queued sessions per tick to avoid overwhelming
-        int attempts = Math.min(5, waitQueue.size());
-        List<PlayerRequest> requeue = new ArrayList<>();
+        // Find requests ready for retry (throttled to at least 2.5s between attempts)
+        List<PlayerRequest> toRetry = new ArrayList<>();
+        List<PlayerRequest> keepWaiting = new ArrayList<>();
         
-        for (int i = 0; i < attempts; i++) {
+        while (!waitQueue.isEmpty() && toRetry.size() < 5) {
             PlayerRequest req = waitQueue.poll();
-            if (req == null) break;
-            
-            GameSession s = createSession(req);
-            if (s == null) {
-                // If it failed to place again, createSession already put it back in waitQueue
+            if (now - req.getLastAttemptAt() >= 2500) {
+                toRetry.add(req);
+            } else {
+                keepWaiting.add(req);
             }
+        }
+        waitQueue.addAll(keepWaiting);
+        
+        for (PlayerRequest req : toRetry) {
+            req.setLastAttemptAt(now);
+            createSession(req);
         }
         broadcastQueueState();
     }

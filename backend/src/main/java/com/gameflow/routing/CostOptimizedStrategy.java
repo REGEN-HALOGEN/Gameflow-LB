@@ -31,14 +31,15 @@ public class CostOptimizedStrategy implements RoutingStrategy {
         breakdown.put("latency", playerLatencyMs);
         
         String penaltyReason = Eligibility.check(node, m, playerLatencyMs);
-        if (penaltyReason == null && playerLatencyMs >= 60.0) {
-            penaltyReason = "LATENCY SLA MISS (>60ms)";
-        }
         
         double score = node.getCostPerHour() + (playerLatencyMs / 1000.0);
         if (penaltyReason != null) {
             score += WeightedGamingStrategy.INELIGIBLE_PENALTY;
             breakdown.put("penalty", WeightedGamingStrategy.INELIGIBLE_PENALTY);
+        } else if (playerLatencyMs >= 60.0) {
+            // Soft SLA: prioritize servers under 60ms, but allow fallback if none available (<100ms ceiling)
+            score += 15.0;
+            breakdown.put("slaPenalty", 15.0);
         }
 
         CandidateScore candidate = new CandidateScore();
