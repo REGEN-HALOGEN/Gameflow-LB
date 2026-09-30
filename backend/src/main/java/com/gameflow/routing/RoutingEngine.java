@@ -192,11 +192,22 @@ public class RoutingEngine {
         if (requiredTier == null || requiredTier.isEmpty()) return true;
         if (serverTier == null) return false;
         if (requiredTier.equals(serverTier)) return true;
-        // Higher-tier GPU nodes can fulfill lower-tier game requirements
-        if ("RTX_3080".equals(requiredTier) && "RTX_4090".equals(serverTier)) {
-            return true;
-        }
-        return false;
+        // Tier ranking: RTX_3050 < RTX_3070 < RTX_3080 < RTX_4090 < RTX_4090_TI
+        // A higher-tier server can always fulfil a lower-tier game requirement.
+        int required = tierRank(requiredTier);
+        int server   = tierRank(serverTier);
+        return server >= required;
+    }
+
+    private static int tierRank(String tier) {
+        return switch (tier) {
+            case "RTX_3050"    -> 1;
+            case "RTX_3070"    -> 2;
+            case "RTX_3080"    -> 3;
+            case "RTX_4090"    -> 4;
+            case "RTX_4090_TI" -> 5;
+            default            -> 0;
+        };
     }
 
     private static double round1(double v) {

@@ -108,17 +108,21 @@ public class AutoScaler {
         }
     }
 
+    private static final String[] SCALE_TIERS = {"RTX_3050", "RTX_3070", "RTX_3080", "RTX_4090", "RTX_4090_TI"};
+    private static final double[] SCALE_COSTS = { 0.80,       1.80,       2.50,       4.50,        8.00 };
+    private static final int[]    SCALE_CAPS  = { 100,        80,         60,         60,           40  };
+
     private void scaleUp() {
-        int idx = 2 + nextId.getAndIncrement();
-        String id = "GS-MUM-0" + idx; // e.g. GS-MUM-03
-        boolean need4090 = (idx % 2 == 1);
-        String tier = need4090 ? "RTX_4090" : "RTX_3080";
-        double cost = need4090 ? 4.50 : 2.50;
-        ServerNode newNode = new ServerNode(id, "MUMBAI", "Mumbai", 60, cost, tier);
+        int idx  = nextId.getAndIncrement();
+        String id = "GS-MUM-A" + idx;
+        String tier = SCALE_TIERS[idx % SCALE_TIERS.length];
+        double cost = SCALE_COSTS[idx % SCALE_COSTS.length];
+        int    cap  = SCALE_CAPS [idx % SCALE_CAPS.length];
+        ServerNode newNode = new ServerNode(id, "MUMBAI", "Mumbai", cap, cost, tier);
         directory.add(newNode);
         registry.registerNewServer(id);
         breakers.register(id, events, ws);
-        events.info("SERVER_ADDED", "Scale up triggered, added " + id + " (" + tier + ")", id);
+        events.info("SERVER_ADDED", "Scale up: added " + id + " (" + tier + " @$" + cost + "/hr)", id);
         ws.publish("SERVER_ADDED", Map.of("server", newNode));
     }
 
