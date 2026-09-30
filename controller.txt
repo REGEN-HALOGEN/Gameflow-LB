@@ -1,0 +1,360 @@
+Classfile /D:/WORK/PROJECTS/gameflow-lb/backend/target/classes/com/gameflow/api/SimulationController.class
+  Last modified Sep 30, 2026; size 3157 bytes
+  SHA-256 checksum c19f6da3c6dc32f1522158bc487295327398ab45080336dd4895d73698dc0410
+  Compiled from "SimulationController.java"
+public class com.gameflow.api.SimulationController
+  minor version: 0
+  major version: 65
+  flags: (0x0021) ACC_PUBLIC, ACC_SUPER
+  this_class: #1                          // com/gameflow/api/SimulationController
+  super_class: #3                         // java/lang/Object
+  interfaces: 0, fields: 1, methods: 7, attributes: 4
+Constant pool:
+    #1 = Class              #2            // com/gameflow/api/SimulationController
+    #2 = Utf8               com/gameflow/api/SimulationController
+    #3 = Class              #4            // java/lang/Object
+    #4 = Utf8               java/lang/Object
+    #5 = Utf8               simulation
+    #6 = Utf8               Lcom/gameflow/simulation/SimulationEngine;
+    #7 = Utf8               <init>
+    #8 = Utf8               (Lcom/gameflow/simulation/SimulationEngine;)V
+    #9 = Utf8               Code
+   #10 = Methodref          #3.#11        // java/lang/Object."<init>":()V
+   #11 = NameAndType        #7:#12        // "<init>":()V
+   #12 = Utf8               ()V
+   #13 = Fieldref           #1.#14        // com/gameflow/api/SimulationController.simulation:Lcom/gameflow/simulation/SimulationEngine;
+   #14 = NameAndType        #5:#6         // simulation:Lcom/gameflow/simulation/SimulationEngine;
+   #15 = Utf8               LineNumberTable
+   #16 = Utf8               LocalVariableTable
+   #17 = Utf8               this
+   #18 = Utf8               Lcom/gameflow/api/SimulationController;
+   #19 = Utf8               MethodParameters
+   #20 = Utf8               start
+   #21 = Utf8               ()Ljava/util/Map;
+   #22 = Utf8               Signature
+   #23 = Utf8               ()Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;
+   #24 = Utf8               RuntimeVisibleAnnotations
+   #25 = Utf8               Lorg/springframework/web/bind/annotation/PostMapping;
+   #26 = Utf8               value
+   #27 = Utf8               /start
+   #28 = Methodref          #29.#31       // com/gameflow/simulation/SimulationEngine.start:()V
+   #29 = Class              #30           // com/gameflow/simulation/SimulationEngine
+   #30 = Utf8               com/gameflow/simulation/SimulationEngine
+   #31 = NameAndType        #20:#12       // start:()V
+   #32 = String             #33           // state
+   #33 = Utf8               state
+   #34 = Methodref          #29.#35       // com/gameflow/simulation/SimulationEngine.getState:()Lcom/gameflow/model/SimulationState;
+   #35 = NameAndType        #36:#37       // getState:()Lcom/gameflow/model/SimulationState;
+   #36 = Utf8               getState
+   #37 = Utf8               ()Lcom/gameflow/model/SimulationState;
+   #38 = Methodref          #39.#41       // com/gameflow/model/SimulationState.name:()Ljava/lang/String;
+   #39 = Class              #40           // com/gameflow/model/SimulationState
+   #40 = Utf8               com/gameflow/model/SimulationState
+   #41 = NameAndType        #42:#43       // name:()Ljava/lang/String;
+   #42 = Utf8               name
+   #43 = Utf8               ()Ljava/lang/String;
+   #44 = InterfaceMethodref #45.#47       // java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+   #45 = Class              #46           // java/util/Map
+   #46 = Utf8               java/util/Map
+   #47 = NameAndType        #48:#49       // of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+   #48 = Utf8               of
+   #49 = Utf8               (Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+   #50 = Utf8               pause
+   #51 = Utf8               /pause
+   #52 = Methodref          #29.#53       // com/gameflow/simulation/SimulationEngine.pause:()V
+   #53 = NameAndType        #50:#12       // pause:()V
+   #54 = Utf8               resume
+   #55 = Utf8               /resume
+   #56 = Methodref          #29.#57       // com/gameflow/simulation/SimulationEngine.resume:()V
+   #57 = NameAndType        #54:#12       // resume:()V
+   #58 = Utf8               reset
+   #59 = Utf8               /reset
+   #60 = Methodref          #29.#61       // com/gameflow/simulation/SimulationEngine.reset:()V
+   #61 = NameAndType        #58:#12       // reset:()V
+   #62 = Utf8               speed
+   #63 = Utf8               (Lcom/gameflow/api/SimulationController$SpeedRequest;)Ljava/util/Map;
+   #64 = Utf8               (Lcom/gameflow/api/SimulationController$SpeedRequest;)Ljava/util/Map<Ljava/lang/String;Ljava/lang/Double;>;
+   #65 = Utf8               Lorg/springframework/web/bind/annotation/PutMapping;
+   #66 = Utf8               /speed
+   #67 = Utf8               RuntimeVisibleParameterAnnotations
+   #68 = Utf8               Lorg/springframework/web/bind/annotation/RequestBody;
+   #69 = Methodref          #70.#72       // com/gameflow/api/SimulationController$SpeedRequest.speed:()D
+   #70 = Class              #71           // com/gameflow/api/SimulationController$SpeedRequest
+   #71 = Utf8               com/gameflow/api/SimulationController$SpeedRequest
+   #72 = NameAndType        #62:#73       // speed:()D
+   #73 = Utf8               ()D
+   #74 = Methodref          #29.#75       // com/gameflow/simulation/SimulationEngine.setSpeed:(D)V
+   #75 = NameAndType        #76:#77       // setSpeed:(D)V
+   #76 = Utf8               setSpeed
+   #77 = Utf8               (D)V
+   #78 = String             #62           // speed
+   #79 = Methodref          #29.#80       // com/gameflow/simulation/SimulationEngine.getSpeed:()D
+   #80 = NameAndType        #81:#73       // getSpeed:()D
+   #81 = Utf8               getSpeed
+   #82 = Methodref          #83.#85       // java/lang/Double.valueOf:(D)Ljava/lang/Double;
+   #83 = Class              #84           // java/lang/Double
+   #84 = Utf8               java/lang/Double
+   #85 = NameAndType        #86:#87       // valueOf:(D)Ljava/lang/Double;
+   #86 = Utf8               valueOf
+   #87 = Utf8               (D)Ljava/lang/Double;
+   #88 = Utf8               body
+   #89 = Utf8               Lcom/gameflow/api/SimulationController$SpeedRequest;
+   #90 = Utf8               traffic
+   #91 = Utf8               (Lcom/gameflow/api/SimulationController$TrafficRequest;)Ljava/util/Map;
+   #92 = Utf8               (Lcom/gameflow/api/SimulationController$TrafficRequest;)Ljava/util/Map<Ljava/lang/String;Ljava/lang/Integer;>;
+   #93 = Utf8               /traffic
+   #94 = Methodref          #95.#97       // com/gameflow/api/SimulationController$TrafficRequest.targetSessions:()I
+   #95 = Class              #96           // com/gameflow/api/SimulationController$TrafficRequest
+   #96 = Utf8               com/gameflow/api/SimulationController$TrafficRequest
+   #97 = NameAndType        #98:#99       // targetSessions:()I
+   #98 = Utf8               targetSessions
+   #99 = Utf8               ()I
+  #100 = Methodref          #29.#101      // com/gameflow/simulation/SimulationEngine.setTrafficTarget:(I)V
+  #101 = NameAndType        #102:#103     // setTrafficTarget:(I)V
+  #102 = Utf8               setTrafficTarget
+  #103 = Utf8               (I)V
+  #104 = String             #98           // targetSessions
+  #105 = Methodref          #29.#106      // com/gameflow/simulation/SimulationEngine.getTrafficTarget:()I
+  #106 = NameAndType        #107:#99      // getTrafficTarget:()I
+  #107 = Utf8               getTrafficTarget
+  #108 = Methodref          #109.#111     // java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+  #109 = Class              #110          // java/lang/Integer
+  #110 = Utf8               java/lang/Integer
+  #111 = NameAndType        #86:#112      // valueOf:(I)Ljava/lang/Integer;
+  #112 = Utf8               (I)Ljava/lang/Integer;
+  #113 = Utf8               Lcom/gameflow/api/SimulationController$TrafficRequest;
+  #114 = Utf8               SourceFile
+  #115 = Utf8               SimulationController.java
+  #116 = Utf8               Lorg/springframework/web/bind/annotation/RestController;
+  #117 = Utf8               Lorg/springframework/web/bind/annotation/RequestMapping;
+  #118 = Utf8               /api/simulation
+  #119 = Utf8               InnerClasses
+  #120 = Utf8               SpeedRequest
+  #121 = Utf8               TrafficRequest
+  #122 = Utf8               NestMembers
+{
+  public com.gameflow.api.SimulationController(com.gameflow.simulation.SimulationEngine);
+    descriptor: (Lcom/gameflow/simulation/SimulationEngine;)V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=2, locals=2, args_size=2
+         0: aload_0
+         1: invokespecial #10                 // Method java/lang/Object."<init>":()V
+         4: aload_0
+         5: aload_1
+         6: putfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+         9: return
+      LineNumberTable:
+        line 18: 0
+        line 19: 4
+        line 20: 9
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      10     0  this   Lcom/gameflow/api/SimulationController;
+            0      10     1 simulation   Lcom/gameflow/simulation/SimulationEngine;
+    MethodParameters:
+      Name                           Flags
+      simulation
+
+  public java.util.Map<java.lang.String, java.lang.String> start();
+    descriptor: ()Ljava/util/Map;
+    flags: (0x0001) ACC_PUBLIC
+    Signature: #23                          // ()Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;
+    RuntimeVisibleAnnotations:
+      0: #25(#26=[s#27])
+        org.springframework.web.bind.annotation.PostMapping(
+          value=["/start"]
+        )
+    Code:
+      stack=2, locals=1, args_size=1
+         0: aload_0
+         1: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+         4: invokevirtual #28                 // Method com/gameflow/simulation/SimulationEngine.start:()V
+         7: ldc           #32                 // String state
+         9: aload_0
+        10: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+        13: invokevirtual #34                 // Method com/gameflow/simulation/SimulationEngine.getState:()Lcom/gameflow/model/SimulationState;
+        16: invokevirtual #38                 // Method com/gameflow/model/SimulationState.name:()Ljava/lang/String;
+        19: invokestatic  #44                 // InterfaceMethod java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+        22: areturn
+      LineNumberTable:
+        line 24: 0
+        line 25: 7
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      23     0  this   Lcom/gameflow/api/SimulationController;
+
+  public java.util.Map<java.lang.String, java.lang.String> pause();
+    descriptor: ()Ljava/util/Map;
+    flags: (0x0001) ACC_PUBLIC
+    Signature: #23                          // ()Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;
+    RuntimeVisibleAnnotations:
+      0: #25(#26=[s#51])
+        org.springframework.web.bind.annotation.PostMapping(
+          value=["/pause"]
+        )
+    Code:
+      stack=2, locals=1, args_size=1
+         0: aload_0
+         1: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+         4: invokevirtual #52                 // Method com/gameflow/simulation/SimulationEngine.pause:()V
+         7: ldc           #32                 // String state
+         9: aload_0
+        10: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+        13: invokevirtual #34                 // Method com/gameflow/simulation/SimulationEngine.getState:()Lcom/gameflow/model/SimulationState;
+        16: invokevirtual #38                 // Method com/gameflow/model/SimulationState.name:()Ljava/lang/String;
+        19: invokestatic  #44                 // InterfaceMethod java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+        22: areturn
+      LineNumberTable:
+        line 30: 0
+        line 31: 7
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      23     0  this   Lcom/gameflow/api/SimulationController;
+
+  public java.util.Map<java.lang.String, java.lang.String> resume();
+    descriptor: ()Ljava/util/Map;
+    flags: (0x0001) ACC_PUBLIC
+    Signature: #23                          // ()Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;
+    RuntimeVisibleAnnotations:
+      0: #25(#26=[s#55])
+        org.springframework.web.bind.annotation.PostMapping(
+          value=["/resume"]
+        )
+    Code:
+      stack=2, locals=1, args_size=1
+         0: aload_0
+         1: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+         4: invokevirtual #56                 // Method com/gameflow/simulation/SimulationEngine.resume:()V
+         7: ldc           #32                 // String state
+         9: aload_0
+        10: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+        13: invokevirtual #34                 // Method com/gameflow/simulation/SimulationEngine.getState:()Lcom/gameflow/model/SimulationState;
+        16: invokevirtual #38                 // Method com/gameflow/model/SimulationState.name:()Ljava/lang/String;
+        19: invokestatic  #44                 // InterfaceMethod java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+        22: areturn
+      LineNumberTable:
+        line 36: 0
+        line 37: 7
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      23     0  this   Lcom/gameflow/api/SimulationController;
+
+  public java.util.Map<java.lang.String, java.lang.String> reset();
+    descriptor: ()Ljava/util/Map;
+    flags: (0x0001) ACC_PUBLIC
+    Signature: #23                          // ()Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;
+    RuntimeVisibleAnnotations:
+      0: #25(#26=[s#59])
+        org.springframework.web.bind.annotation.PostMapping(
+          value=["/reset"]
+        )
+    Code:
+      stack=2, locals=1, args_size=1
+         0: aload_0
+         1: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+         4: invokevirtual #60                 // Method com/gameflow/simulation/SimulationEngine.reset:()V
+         7: ldc           #32                 // String state
+         9: aload_0
+        10: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+        13: invokevirtual #34                 // Method com/gameflow/simulation/SimulationEngine.getState:()Lcom/gameflow/model/SimulationState;
+        16: invokevirtual #38                 // Method com/gameflow/model/SimulationState.name:()Ljava/lang/String;
+        19: invokestatic  #44                 // InterfaceMethod java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+        22: areturn
+      LineNumberTable:
+        line 42: 0
+        line 43: 7
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      23     0  this   Lcom/gameflow/api/SimulationController;
+
+  public java.util.Map<java.lang.String, java.lang.Double> speed(com.gameflow.api.SimulationController$SpeedRequest);
+    descriptor: (Lcom/gameflow/api/SimulationController$SpeedRequest;)Ljava/util/Map;
+    flags: (0x0001) ACC_PUBLIC
+    Signature: #64                          // (Lcom/gameflow/api/SimulationController$SpeedRequest;)Ljava/util/Map<Ljava/lang/String;Ljava/lang/Double;>;
+    RuntimeVisibleAnnotations:
+      0: #65(#26=[s#66])
+        org.springframework.web.bind.annotation.PutMapping(
+          value=["/speed"]
+        )
+    RuntimeVisibleParameterAnnotations:
+      parameter 0:
+        0: #68()
+          org.springframework.web.bind.annotation.RequestBody
+    Code:
+      stack=3, locals=2, args_size=2
+         0: aload_0
+         1: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+         4: aload_1
+         5: invokevirtual #69                 // Method com/gameflow/api/SimulationController$SpeedRequest.speed:()D
+         8: invokevirtual #74                 // Method com/gameflow/simulation/SimulationEngine.setSpeed:(D)V
+        11: ldc           #78                 // String speed
+        13: aload_0
+        14: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+        17: invokevirtual #79                 // Method com/gameflow/simulation/SimulationEngine.getSpeed:()D
+        20: invokestatic  #82                 // Method java/lang/Double.valueOf:(D)Ljava/lang/Double;
+        23: invokestatic  #44                 // InterfaceMethod java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+        26: areturn
+      LineNumberTable:
+        line 48: 0
+        line 49: 11
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      27     0  this   Lcom/gameflow/api/SimulationController;
+            0      27     1  body   Lcom/gameflow/api/SimulationController$SpeedRequest;
+    MethodParameters:
+      Name                           Flags
+      body
+
+  public java.util.Map<java.lang.String, java.lang.Integer> traffic(com.gameflow.api.SimulationController$TrafficRequest);
+    descriptor: (Lcom/gameflow/api/SimulationController$TrafficRequest;)Ljava/util/Map;
+    flags: (0x0001) ACC_PUBLIC
+    Signature: #92                          // (Lcom/gameflow/api/SimulationController$TrafficRequest;)Ljava/util/Map<Ljava/lang/String;Ljava/lang/Integer;>;
+    RuntimeVisibleAnnotations:
+      0: #65(#26=[s#93])
+        org.springframework.web.bind.annotation.PutMapping(
+          value=["/traffic"]
+        )
+    RuntimeVisibleParameterAnnotations:
+      parameter 0:
+        0: #68()
+          org.springframework.web.bind.annotation.RequestBody
+    Code:
+      stack=2, locals=2, args_size=2
+         0: aload_0
+         1: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+         4: aload_1
+         5: invokevirtual #94                 // Method com/gameflow/api/SimulationController$TrafficRequest.targetSessions:()I
+         8: invokevirtual #100                // Method com/gameflow/simulation/SimulationEngine.setTrafficTarget:(I)V
+        11: ldc           #104                // String targetSessions
+        13: aload_0
+        14: getfield      #13                 // Field simulation:Lcom/gameflow/simulation/SimulationEngine;
+        17: invokevirtual #105                // Method com/gameflow/simulation/SimulationEngine.getTrafficTarget:()I
+        20: invokestatic  #108                // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+        23: invokestatic  #44                 // InterfaceMethod java/util/Map.of:(Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Map;
+        26: areturn
+      LineNumberTable:
+        line 55: 0
+        line 56: 11
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0      27     0  this   Lcom/gameflow/api/SimulationController;
+            0      27     1  body   Lcom/gameflow/api/SimulationController$TrafficRequest;
+    MethodParameters:
+      Name                           Flags
+      body
+}
+SourceFile: "SimulationController.java"
+RuntimeVisibleAnnotations:
+  0: #116()
+    org.springframework.web.bind.annotation.RestController
+  1: #117(#26=[s#118])
+    org.springframework.web.bind.annotation.RequestMapping(
+      value=["/api/simulation"]
+    )
+InnerClasses:
+  public static final #120= #70 of #1;    // SpeedRequest=class com/gameflow/api/SimulationController$SpeedRequest of class com/gameflow/api/SimulationController
+  public static final #121= #95 of #1;    // TrafficRequest=class com/gameflow/api/SimulationController$TrafficRequest of class com/gameflow/api/SimulationController
+NestMembers:
+  com/gameflow/api/SimulationController$SpeedRequest
+  com/gameflow/api/SimulationController$TrafficRequest

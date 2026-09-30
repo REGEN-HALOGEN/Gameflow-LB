@@ -1,7 +1,6 @@
 package com.gameflow.routing;
 
 import com.gameflow.events.EventBus;
-import com.gameflow.model.EventSeverity;
 import com.gameflow.model.PlayerRequest;
 import com.gameflow.model.RoutingDecision;
 import com.gameflow.model.ServerState;

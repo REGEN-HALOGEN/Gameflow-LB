@@ -25,7 +25,10 @@ import type { ServerNode as ServerNodeT } from '../types';
 const nodeShell =
   'bg-panel border border-line2 rounded-[6px] px-3 py-2 w-[228px] select-none';
 
-function PlayersNode({ data }: NodeProps<{ rps: number; flashing: boolean }>) {
+function PlayersNode() {
+  const { totals, activeRoute } = useSim();
+  const flashing = !!activeRoute;
+  const rps = totals.requestsPerSec;
   return (
     <div className={`${nodeShell} text-center`}>
       <Handle type="source" position={Position.Bottom} style={{ background: '#4F8CFF' }} />
@@ -34,9 +37,9 @@ function PlayersNode({ data }: NodeProps<{ rps: number; flashing: boolean }>) {
       </div>
       <div className="mt-1 flex items-center justify-center gap-2">
         <span
-          className={`inline-block h-[7px] w-[7px] rounded-full bg-info ${data.flashing ? 'soft-pulse' : ''}`}
+          className={`inline-block h-[7px] w-[7px] rounded-full bg-info ${flashing ? 'soft-pulse' : ''}`}
         />
-        <span className="font-mono text-[15px] tnum text-zinc-100">{data.rps.toFixed(1)}</span>
+        <span className="font-mono text-[15px] tnum text-zinc-100">{rps.toFixed(1)}</span>
         <span className="font-mono text-[10px] text-zinc-500">req/s</span>
       </div>
     </div>
@@ -56,7 +59,8 @@ function LbNode() {
   );
 }
 
-function RouterNode({ data }: NodeProps<{ strategy: string }>) {
+function RouterNode() {
+  const { strategy } = useSim();
   return (
     <div className={`${nodeShell} text-center`} style={{ borderColor: '#4F8CFF55' }}>
       <Handle type="target" position={Position.Top} style={{ background: '#4F8CFF' }} />
@@ -64,7 +68,7 @@ function RouterNode({ data }: NodeProps<{ strategy: string }>) {
       <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-info">
         Routing Engine
       </div>
-      <div className="font-mono text-[10px] text-zinc-500 mt-0.5">{data.strategy}</div>
+      <div className="font-mono text-[10px] text-zinc-500 mt-0.5">{strategy}</div>
     </div>
   );
 }
@@ -172,10 +176,11 @@ function TrafficEdge({
     targetPosition,
   });
   const [hover, setHover] = React.useState(false);
-  const active = !!data?.active;
+  
   // Live server for the hover tooltip — read from context so the edge's `data`
-  // stays a stable { serverId, active } reference across metric flushes.
-  const { servers } = useSim();
+  // stays a stable reference across metric flushes.
+  const { servers, activeRoute } = useSim();
+  const active = activeRoute?.serverId === data?.serverId;
   const s: ServerNodeT | undefined = data?.serverId ? servers[data.serverId] : undefined;
   return (
     <>
@@ -227,7 +232,7 @@ const edgeTypes = { traffic: TrafficEdge };
 // ---------------------------------------------------------------------------
 
 export default function TopologyGraph({ compact }: { compact?: boolean }) {
-  const { serverIds, totals, strategy, activeRoute, openDrawer, simState } = useSim();
+  const { serverIds, openDrawer, simState } = useSim();
 
   const nodes: Node[] = useMemo(() => {
     const list: Node[] = [
@@ -235,14 +240,14 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
         id: 'players',
         type: 'players',
         position: { x: 510, y: 10 },
-        data: { rps: totals.requestsPerSec, flashing: !!activeRoute },
+        data: {},
       },
       { id: 'lb', type: 'lb', position: { x: 510, y: 120 }, data: {} },
       {
         id: 'router',
         type: 'router',
         position: { x: 510, y: 225 },
-        data: { strategy },
+        data: {},
       },
     ];
     const xs = [90, 400, 710, 1020];
@@ -259,7 +264,7 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
     // NOTE: intentionally not depending on `servers` — server values stream in
     // via context inside the node component; depending on it rebuilt the whole
     // graph on every 500ms metric flush.
-  }, [serverIds, totals.requestsPerSec, strategy, activeRoute]);
+  }, [serverIds]);
 
   const edges: Edge[] = useMemo(() => {
     const list: Edge[] = [
@@ -273,12 +278,12 @@ export default function TopologyGraph({ compact }: { compact?: boolean }) {
         target: 'srv-' + id,
         type: 'traffic',
         // Stable data: the edge component reads the live server from context.
-        data: { serverId: id, active: activeRoute?.serverId === id },
+        data: { serverId: id },
       });
     }
     return list;
     // NOTE: intentionally not depending on `servers` (see nodes above).
-  }, [serverIds, activeRoute]);
+  }, [serverIds]);
 
   if (serverIds.length === 0) {
     return (

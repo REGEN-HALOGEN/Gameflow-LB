@@ -24,6 +24,7 @@ import type {
   SimulationState,
   SystemEvent,
   WsStatus,
+  RmiStatus,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -113,7 +114,8 @@ type Action =
   | { type: 'SCENARIOS'; scenarios: Scenario[] }
   | { type: 'DRAWER'; serverId: string | null }
   | { type: 'INSPECT'; decision: RoutingDecision | null }
-  | { type: 'CLEAR_ROUTE'; decisionId: string };
+  | { type: 'CLEAR_ROUTE'; decisionId: string }
+  | { type: 'RMI_STATUS_CHANGED'; serverId: string; rmiStatus: RmiStatus };
 
 function patchServer(state: SimState, id: string, patch: Partial<ServerNode>): SimState {
   const s = state.servers[id];
@@ -233,6 +235,8 @@ function reducer(state: SimState, action: Action): SimState {
       return state.activeRoute && state.activeRoute.decisionId === action.decisionId
         ? { ...state, activeRoute: null }
         : state;
+    case 'RMI_STATUS_CHANGED':
+      return patchServer(state, action.serverId, { rmiStatus: action.rmiStatus });
     default:
       return state;
   }
@@ -403,6 +407,10 @@ export function SimulationProvider({ children }: { children: React.ReactNode }) 
           break;
         case 'SIMULATION_STATE_CHANGED':
           dispatch({ type: 'SIMULATION_STATE_CHANGED', state: msg.state, speed: msg.speed ?? 1 });
+          break;
+        case 'RMI_STATUS_CHANGED':
+          if (msg.serverId && msg.rmiStatus)
+            dispatch({ type: 'RMI_STATUS_CHANGED', serverId: msg.serverId, rmiStatus: msg.rmiStatus });
           break;
         default:
           break;

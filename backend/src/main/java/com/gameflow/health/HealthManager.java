@@ -92,12 +92,16 @@ public class HealthManager {
             RmiStatus want = registry.isRmiAvailable() ? RmiStatus.CONNECTED : RmiStatus.UNREACHABLE;
             if (node.getRmiStatus() != want) {
                 node.setRmiStatus(want);
+                ws.publish("RMI_STATUS_CHANGED", Map.of("serverId", id, "rmiStatus", want.name()));
                 if (want == RmiStatus.CONNECTED) {
                     events.info("RMI_RECONNECTED", id + " RMI reachable again", id);
                 }
             }
         } catch (RemoteException e) {
-            node.setRmiStatus(RmiStatus.UNREACHABLE);
+            if (node.getRmiStatus() != RmiStatus.UNREACHABLE) {
+                node.setRmiStatus(RmiStatus.UNREACHABLE);
+                ws.publish("RMI_STATUS_CHANGED", Map.of("serverId", id, "rmiStatus", RmiStatus.UNREACHABLE.name()));
+            }
             onFailure(node, breaker, true);
             return;
         }

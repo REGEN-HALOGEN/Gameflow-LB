@@ -1,7 +1,6 @@
 package com.gameflow.api;
 
 import com.gameflow.GameFlowApplication;
-import com.gameflow.model.GameSession;
 import com.gameflow.model.ServerNode;
 import com.gameflow.model.ServerState;
 import com.gameflow.model.SessionState;

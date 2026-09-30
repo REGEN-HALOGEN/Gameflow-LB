@@ -254,7 +254,10 @@ public class SimulationEngine {
                 }
                 ServerMetrics metrics = stub.getMetrics();
                 node.setMetrics(metrics);
-                node.setRmiStatus(RmiStatus.CONNECTED);
+                if (node.getRmiStatus() != RmiStatus.CONNECTED) {
+                    node.setRmiStatus(RmiStatus.CONNECTED);
+                    ws.publish("RMI_STATUS_CHANGED", Map.of("serverId", id, "rmiStatus", RmiStatus.CONNECTED.name()));
+                }
                 // Refresh eligibility immediately so the UI badge reflects metric
                 // threshold changes without waiting up to 2s for the health tick.
                 node.refreshEligibility();
@@ -264,7 +267,10 @@ public class SimulationEngine {
                         "serverId", id,
                         "metrics", metrics));
             } catch (Exception e) {
-                node.setRmiStatus(RmiStatus.UNREACHABLE);
+                if (node.getRmiStatus() != RmiStatus.UNREACHABLE) {
+                    node.setRmiStatus(RmiStatus.UNREACHABLE);
+                    ws.publish("RMI_STATUS_CHANGED", Map.of("serverId", id, "rmiStatus", RmiStatus.UNREACHABLE.name()));
+                }
             }
         }
         if (!latest.isEmpty()) {

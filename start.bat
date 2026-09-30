@@ -73,6 +73,14 @@ where mvn >nul 2>&1
 if not errorlevel 1 (
     set "BACKEND_CMD=mvn -q spring-boot:run"
 ) else if exist "%ROOT%\backend\target\gameflow-lb-1.0.0.jar" (
+    if exist "%ROOT%\backend\target\classes" (
+        echo [INFO] Injecting newly compiled IDE classes into the JAR...
+        if not exist "%ROOT%\backend\target\BOOT-INF\classes" mkdir "%ROOT%\backend\target\BOOT-INF\classes"
+        xcopy /Y /E /Q "%ROOT%\backend\target\classes\*" "%ROOT%\backend\target\BOOT-INF\classes\" >nul
+        pushd "%ROOT%\backend\target"
+        jar uf gameflow-lb-1.0.0.jar BOOT-INF\classes
+        popd
+    )
     set BACKEND_CMD=java -Djava.rmi.server.hostname=127.0.0.1 -jar "%ROOT%\backend\target\gameflow-lb-1.0.0.jar"
 ) else (
     echo [ERROR] Neither 'mvn' was found on PATH nor was the JAR found at: >&2
