@@ -165,17 +165,11 @@ public class SimulationEngine {
             var node = directory.get(id);
             if (node != null) {
                 previousStates.put(id, node.getState());
-            } else {
-                // If the node was dynamically added and removed, or we need to tear down dynamic nodes
-                if (!id.equals("GS-MUM-01") && !id.equals("GS-MUM-02") && !id.equals("GS-SIN-01") && !id.equals("GS-BLR-01")) {
-                    registry.unregisterServer(id);
-                }
-            }
-        }
-        
-        // Remove dynamic nodes from registry if they were added
+        // Remove ONLY dynamically auto-scaled nodes from registry on reset.
+        // Dynamic nodes are identified by their 'GS-MUM-A' prefix (set in AutoScaler.scaleUp).
+        // All baseline nodes (GS-MUM-01..05, GS-BLR-01/02, GS-SIN-01/02/03) survive reset.
         for (String id : new java.util.ArrayList<>(registry.serverIds())) {
-            if (!id.equals("GS-MUM-01") && !id.equals("GS-MUM-02") && !id.equals("GS-SIN-01") && !id.equals("GS-BLR-01")) {
+            if (id.startsWith("GS-MUM-A")) {
                 registry.unregisterServer(id);
                 breakers.unregister(id);
                 ws.publish("SERVER_REMOVED", Map.of("serverId", id));

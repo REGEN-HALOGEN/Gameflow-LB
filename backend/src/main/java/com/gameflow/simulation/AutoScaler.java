@@ -61,7 +61,7 @@ public class AutoScaler {
 
         for (ServerNode node : directory.all()) {
             String id = node.getId();
-            
+
             // If this node is pending removal, check if it's safe to destroy
             if (pendingRemoval.contains(id)) {
                 if (node.getMetrics() != null && node.getMetrics().getSessions() == 0) {
@@ -71,8 +71,15 @@ public class AutoScaler {
                     pendingRemoval.remove(id);
                     events.info("SERVER_REMOVED", "Scale down complete, removed " + id, id);
                     ws.publish("SERVER_REMOVED", Map.of("serverId", id));
+                } else {
+                    // Count DRAINING capacity so its remaining sessions don't falsely
+                    // deflate utilization and trigger another cascading drain.
+                    totalCapacity += node.getCapacity();
+                    if (node.getMetrics() != null) {
+                        totalSessions += node.getMetrics().getSessions();
+                    }
                 }
-                continue; // don't count its capacity
+                continue;
             }
 
             if (node.getState() == ServerState.HEALTHY || node.getState() == ServerState.DEGRADED) {
@@ -97,9 +104,11 @@ public class AutoScaler {
             scaleUpTicks = 0;
         }
 
-        if (util < 0.30 && directory.all().size() > 4) { // keep at least 4 servers
+        // Only drain when truly under-utilized: <20% util sustained for 10s,
+        // and always keep at least 6 baseline servers to cover the 5 GPU tiers.
+        if (util < 0.20 && directory.all().size() > 6) {
             scaleDownTicks++;
-            if (scaleDownTicks >= 3) {
+            if (scaleDownTicks >= 5) { // 10 seconds sustained low load
                 scaleDownTicks = 0;
                 scaleDown();
             }
