@@ -30,28 +30,41 @@ rejected.
 ```mermaid
 flowchart TB
     subgraph FE["React Frontend (Vite + TypeScript)"]
-        UI["Ops Console UI<br/>Topology · Charts · Sessions<br/>Decisions · Events · Scenarios"]
+        UI["Ops Console UI<br/>Topology · Charts · Sessions<br/>Decisions · Events · Scenarios · Analytics"]
     end
 
     subgraph LB["Java Spring Boot Load Balancer"]
         REST["REST API"]
         WS["WebSocket<br/>/ws/events"]
-        RE["RoutingEngine<br/>4 strategies"]
-        SM["SessionManager<br/>ConcurrentHashMap"]
+        RE["RoutingEngine<br/>5 strategies · Tier-aware"]
+        SM["SessionManager<br/>ConcurrentHashMap + WaitQueue"]
         HM["HealthManager"]
         CB["CircuitBreaker<br/>per server"]
-        SIM["SimulationEngine<br/>traffic + metrics + scenarios"]
+        SIM["SimulationEngine<br/>traffic + metrics + scenarios + auto-scale"]
     end
 
     subgraph RMI["Java RMI"]
         REMOTE["GameServerRemote"]
     end
 
-    subgraph GS["Simulated Game Servers"]
-        S1["GS-MUM-01"]
-        S2["GS-MUM-02"]
-        S3["GS-SIN-01"]
-        S4["GS-BLR-01"]
+    subgraph GS["Simulated Server Fleet (10 Nodes Across 5 Hardware Tiers)"]
+        direction TB
+        subgraph MUM["Mumbai (India)"]
+            S1["GS-MUM-01 (RTX 3050 - $0.80/h)"]
+            S2["GS-MUM-02 (RTX 3070 - $1.80/h)"]
+            S3["GS-MUM-03 (RTX 3080 - $2.50/h)"]
+            S4["GS-MUM-04 (RTX 4090 - $4.50/h)"]
+            S5["GS-MUM-05 (RTX 4090 Ti - $8.00/h)"]
+        end
+        subgraph BLR["Bangalore (India)"]
+            S6["GS-BLR-02 (RTX 3050 - $0.80/h)"]
+            S7["GS-BLR-01 (RTX 3070 - $1.80/h)"]
+        end
+        subgraph SIN["Singapore (Southeast Asia)"]
+            S8["GS-SIN-01 (RTX 3080 - $2.80/h)"]
+            S9["GS-SIN-02 (RTX 4090 - $5.00/h)"]
+            S10["GS-SIN-03 (RTX 4090 Ti - $8.50/h)"]
+        end
     end
 
     UI <-->|REST /api/*| REST
@@ -64,10 +77,7 @@ flowchart TB
     CB --> HM
     SIM --> RE
     SIM --> SM
-    REMOTE --> S1
-    REMOTE --> S2
-    REMOTE --> S3
-    REMOTE --> S4
+    REMOTE --> S1 & S2 & S3 & S4 & S5 & S6 & S7 & S8 & S9 & S10
 ```
 
 Request lifecycle:
@@ -80,15 +90,18 @@ sequenceDiagram
     participant RMI as GameServerRemote (RMI)
     participant GS as Game Server
 
-    P->>LB: PlayerRequest (region, game, 1080p/60)
-    LB->>RMI: getMetrics() × N servers
-    RMI-->>LB: ServerMetrics
-    LB->>RE: score candidates
-    RE-->>LB: RoutingDecision (scores + reasons)
-    LB->>RMI: createSession(request)
-    RMI->>GS: allocate session
-    GS-->>LB: GameSession
-    LB-->>P: session established (WS: ROUTING_DECISION, SESSION_CREATED)
+    P->>LB: PlayerRequest (playerCity, game, requiredTier, VIP)
+    LB->>RE: score candidates (tier check, SLA, cost/load)
+    alt Eligible server available
+        RE-->>LB: RoutingDecision (selectedServer + score breakdown)
+        LB->>RMI: createSession(request)
+        RMI->>GS: allocate session & compute GPU load
+        GS-->>LB: GameSession
+        LB-->>P: Session established (WS: ROUTING_DECISION, SESSION_CREATED)
+    else All eligible servers saturated / failing
+        LB->>LB: Enqueue in WaitQueue (TTL + VIP priority)
+        LB-->>P: QUEUED (retries on capacity free / auto-scale)
+    end
 ```
 
 ### Why Java RMI?
@@ -114,35 +127,92 @@ JVM only so the demo runs with a single command.
 > interface. Servers report `rmiStatus: UNREACHABLE`, but routing, health
 > checks, circuit breakers, sessions and scenarios all keep working.
 
-### Routing algorithm
+---
 
-Default strategy `WEIGHTED_GAMING` (lower is better, 0–100):
+## Routing Engine & Hardware Tier Hierarchy
 
-```
-score = norm(latency)     × 0.35
-      + norm(cpu)         × 0.20
-      + norm(gpu)         × 0.20
-      + norm(packetLoss)  × 0.10
-      + norm(sessions)    × 0.10
-      + norm(jitter)      × 0.05
-```
+The load balancer features 5 switchable routing strategies:
 
-Normalization caps: latency/100 ms, cpu/100, gpu/100, packetLoss/5%,
-sessions/capacity, jitter/20 ms. Latency dominates because cloud gaming is
-latency-sensitive. Hard exclusion (with recorded reason): GPU > 90%, packet
-loss > 5%, player latency > 100 ms, circuit OPEN, server
-UNHEALTHY/OFFLINE/RECOVERING. Alternatives: `LEAST_SESSIONS`,
-`LOWEST_LATENCY`, `ROUND_ROBIN` — switchable live from the UI.
+1. **`WEIGHTED_GAMING` (Default)**: Multivariable composite score (lower is better, 0–100):
+   ```
+   score = norm(latency)     × 0.35
+         + norm(cpu)         × 0.20
+         + norm(gpu)         × 0.20
+         + norm(packetLoss)  × 0.10
+         + norm(sessions)    × 0.10
+         + norm(jitter)      × 0.05
+   ```
+   *Normalization caps:* latency/100 ms, cpu/100, gpu/100, packetLoss/5%, sessions/capacity, jitter/20 ms.
+2. **`COST_OPTIMIZED`**: Evaluates server hourly cost with latency SLA guarantees:
+   - Filters out ineligible servers and nodes failing the game's minimum hardware tier.
+   - Enforces soft SLA: servers with player latency $< 60\text{ ms}$ are scored primarily by hourly rate: $\text{score} = \text{costPerHour} + (\text{latency} / 1000)$.
+   - Servers exceeding 60 ms incur a $+15.0$ SLA penalty, favoring local cost-effective nodes while allowing regional overflow.
+3. **`LEAST_SESSIONS`**: Directs players to servers with the lowest active session count.
+4. **`LOWEST_LATENCY`**: Directs players strictly to the geographically nearest server with lowest network RTT.
+5. **`ROUND_ROBIN`**: Cycles uniformly across eligible healthy nodes.
 
-### Session management & failover
+### Hardware Tier Hierarchy & Compatibility
 
-`SessionManager` keeps sessions in a `ConcurrentHashMap`. States:
-`CREATING → ACTIVE → (MIGRATING) → TERMINATING → TERMINATED`, plus `FAILED`.
-On server failure, affected sessions are marked `MIGRATING`, re-routed through
-the routing engine, and reassigned — the UI animates the migration in real time.
-Individual sessions can also be manually terminated from the Session detail drawer.
+Cloud gaming workloads have strict GPU compute and VRAM constraints. GameFlow LB enforces a multi-tier downward-compatible GPU hierarchy:
 
-### Circuit breaker
+$$\text{RTX\_3050 (Rank 1)} < \text{RTX\_3070 (Rank 2)} < \text{RTX\_3080 (Rank 3)} < \text{RTX\_4090 (Rank 4)} < \text{RTX\_4090\_TI (Rank 5)}$$
+
+- **Downward Compatibility**: A server can host any game whose requirement is **less than or equal to** the server's tier (e.g., an `RTX_4090` node can run `MINECRAFT` or `VALORANT` if capacity allows).
+- **Hard Tier Exclusion**: A server below the game's tier (e.g., `RTX_3050` trying to run `CYBERPUNK_2077` or `GTA 6`) is rejected immediately with penalty reason `TIER_MISMATCH`.
+- **Other Hard Exclusions**: GPU $> 90\%$, packet loss $> 5\%$, player latency $> 100\text{ ms}$, circuit `OPEN`, or server `UNHEALTHY`/`OFFLINE`/`RECOVERING`.
+
+---
+
+## Real Game Catalog (13 Titles)
+
+Games realistically model memory footprint, streaming bandwidth, CPU logic, and ray-tracing/GPU requirements:
+
+| ID | Title | Genre | Min GPU Tier | GPU Load | VRAM Load | Network Load | CPU Load | Latency Sensitive |
+|---|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| `MINECRAFT` | Minecraft | Sandbox | `RTX_3050` | 22% | 18% | 35% | 40% | No |
+| `ROCKET_LEAGUE` | Rocket League | Sports Arena | `RTX_3050` | 30% | 25% | 80% | 45% | **Yes** |
+| `VALORANT` | Valorant | Competitive Shooter | `RTX_3070` | 42% | 38% | 90% | 50% | **Yes** |
+| `APEX_LEGENDS` | Apex Legends | Battle Royale | `RTX_3070` | 58% | 52% | 82% | 60% | **Yes** |
+| `FORTNITE` | Fortnite | Battle Royale | `RTX_3070` | 52% | 47% | 78% | 55% | **Yes** |
+| `FORZA_HORIZON_5`| Forza Horizon 5 | Racing Sim | `RTX_3080` | 72% | 65% | 60% | 58% | **Yes** |
+| `GOD_OF_WAR` | God of War | Action Adventure | `RTX_3080` | 78% | 72% | 42% | 68% | No |
+| `RED_DEAD_2` | Red Dead Redemption 2 | Open World | `RTX_3080` | 82% | 78% | 48% | 72% | No |
+| `WITCHER_3` | Witcher 3 | Action RPG | `RTX_3080` | 75% | 70% | 45% | 65% | No |
+| `CYBERPUNK_2077` | Cyberpunk 2077 | Open-World RPG | `RTX_4090` | 92% | 88% | 55% | 72% | No |
+| `ALAN_WAKE_2` | Alan Wake 2 | Survival Horror | `RTX_4090` | 94% | 90% | 40% | 70% | No |
+| `GTA_VI` | GTA 6 | Open World Action | `RTX_4090_TI` | 97% | 95% | 65% | 80% | No |
+| `STAR_CITIZEN` | Star Citizen | Space Sim MMO | `RTX_4090_TI` | 98% | 97% | 70% | 85% | No |
+
+---
+
+## Game Server Fleet (10 Nodes)
+
+| Server ID | Location | Region | GPU Tier | Capacity | Hourly Rate |
+|---|---|---|:---:|:---:|:---:|
+| `GS-MUM-01` | Mumbai | India | `RTX_3050` | 100 | $0.80 / hr |
+| `GS-BLR-02` | Bangalore | India | `RTX_3050` | 100 | $0.80 / hr |
+| `GS-MUM-02` | Mumbai | India | `RTX_3070` | 80 | $1.80 / hr |
+| `GS-BLR-01` | Bangalore | India | `RTX_3070` | 80 | $1.80 / hr |
+| `GS-MUM-03` | Mumbai | India | `RTX_3080` | 60 | $2.50 / hr |
+| `GS-SIN-01` | Singapore | Southeast Asia | `RTX_3080` | 60 | $2.80 / hr |
+| `GS-MUM-04` | Mumbai | India | `RTX_4090` | 60 | $4.50 / hr |
+| `GS-SIN-02` | Singapore | Southeast Asia | `RTX_4090` | 60 | $5.00 / hr |
+| `GS-MUM-05` | Mumbai | India | `RTX_4090_TI`| 40 | $8.00 / hr |
+| `GS-SIN-03` | Singapore | Southeast Asia | `RTX_4090_TI`| 40 | $8.50 / hr |
+
+---
+
+### Session Management, Failover & Wait Queues
+
+- **State Lifecycle**: `CREATING → ACTIVE → (MIGRATING) → TERMINATING → TERMINATED`, plus `FAILED` and `QUEUED`.
+- **Dynamic Failover**: On server crash or circuit trip, impacted sessions switch to `MIGRATING` and reroute across healthy nodes in real time.
+- **Priority Wait Queue**: When all eligible nodes reach saturation, requests enter a bounded wait queue with TTL expiration, retry backoff, and VIP priority overrides.
+- **Auto-Scaler & Fleet Burn Rate**:
+  - Automatically spins up new nodes in round-robin GPU tiers (`RTX_3050` through `RTX_4090_TI`) during high-traffic surges.
+  - Automatically scales down idle dynamic instances during low load.
+  - Real-time **Fleet Burn Rate ($/hr)** calculated and displayed across the UI and telemetry streams.
+
+### Circuit Breaker
 
 Per server: `CLOSED` → 3 consecutive failures → `OPEN` (removed from routing)
 → 10 s → `HALF_OPEN` (single probe) → success `CLOSED`, failure `OPEN`.
@@ -154,9 +224,10 @@ Per server: `CLOSED` → 3 consecutive failures → `OPEN` (removed from routing
 - **Live Topology Graph**: Interactive React Flow graph displaying nodes, animated packet flow, real-time circuit-breaker statuses, and animated route flash highlights.
 - **Visual Playground & ChaosBar**: Real-time traffic dial (adjust RPS / session count on the fly), transport selector, and instant chaos injection (GPU overload, latency spikes, packet loss, RMI failure, crash, recover).
 - **Packet Flow Animation**: Canvas-rendered live particle animation showing packets traveling from client regions through the load balancer to the selected game servers.
-- **Routing Decision Inspector**: Deep inspection of candidate scoring breakdowns, penalty reasons, and algorithm weights across all 4 strategies (`WEIGHTED_GAMING`, `LEAST_SESSIONS`, `LOWEST_LATENCY`, `ROUND_ROBIN`).
+- **Routing Decision Inspector**: Deep inspection of candidate scoring breakdowns, penalty reasons, and algorithm weights across all 5 strategies (`WEIGHTED_GAMING`, `COST_OPTIMIZED`, `LEAST_SESSIONS`, `LOWEST_LATENCY`, `ROUND_ROBIN`).
+- **Hardware Tier Compatibility**: Real-time hardware requirement matching and tier hierarchy filtering (`RTX_3050` through `RTX_4090_TI`).
+- **Fleet Burn Rate & Analytics**: Live telemetry tracking active sessions, requests/sec, average latency, GPU utilization, packet loss, and fleet operational burn rate ($/hr).
 - **Deterministic & Custom Scenarios**: Run built-in stress scenarios or use the **Custom Scenario Builder** to compose multi-step chaos drills.
-- **Real-Time Telemetry & Charts**: Live-updating GPU/CPU utilization, latency distributions, packet loss, and session counters backed by WebSocket events and history buffers.
 
 ---
 
@@ -269,6 +340,7 @@ Full contract: [`CONTRACT.md`](CONTRACT.md).
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/system` | Status, sim state, speed, fleet totals |
+| GET | `/api/games` | Game catalog with hardware tiers & load profiles |
 | GET | `/api/servers` / `/api/servers/{id}` | Servers + live metrics |
 | GET | `/api/sessions` | Sessions (`?state=&serverId=&search=`) |
 | DELETE | `/api/sessions/{id}` | Terminate an individual game session |
