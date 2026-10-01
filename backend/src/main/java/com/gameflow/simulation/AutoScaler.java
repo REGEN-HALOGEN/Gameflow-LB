@@ -11,7 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,18 +61,17 @@ public class AutoScaler {
         long totalCapacity = 0;
         long totalSessions = 0;
 
+        // BUG-2 fix: collect completed-drain IDs first, remove after iteration
+        // to avoid mutating pendingRemoval while iterating over it.
+        List<String> completedDrains = new ArrayList<>();
+
         for (ServerNode node : directory.all()) {
             String id = node.getId();
 
             // If this node is pending removal, check if it's safe to destroy
             if (pendingRemoval.contains(id)) {
                 if (node.getMetrics() != null && node.getMetrics().getSessions() == 0) {
-                    directory.remove(id);
-                    registry.unregisterServer(id);
-                    breakers.unregister(id);
-                    pendingRemoval.remove(id);
-                    events.info("SERVER_REMOVED", "Scale down complete, removed " + id, id);
-                    ws.publish("SERVER_REMOVED", Map.of("serverId", id));
+                    completedDrains.add(id);
                 } else {
                     // Count DRAINING capacity so its remaining sessions don't falsely
                     // deflate utilization and trigger another cascading drain.
@@ -90,6 +91,16 @@ public class AutoScaler {
             }
         }
 
+        // Safe to mutate pendingRemoval now that iteration is complete.
+        for (String id : completedDrains) {
+            directory.remove(id);
+            registry.unregisterServer(id);
+            breakers.unregister(id);
+            pendingRemoval.remove(id);
+            events.info("SERVER_REMOVED", "Scale down complete, removed " + id, id);
+            ws.publish("SERVER_REMOVED", Map.of("serverId", id));
+        }
+
         if (totalCapacity == 0) return;
 
         double util = (double) totalSessions / totalCapacity;
@@ -104,9 +115,15 @@ public class AutoScaler {
             scaleUpTicks = 0;
         }
 
-        // Only drain when truly under-utilized: <20% util sustained for 10s,
-        // and always keep at least 6 baseline servers to cover the 5 GPU tiers.
-        if (util < 0.20 && directory.all().size() > 6) {
+        // Only drain when truly under-utilized: <20% util sustained for 10s.
+        // Guard against cascade: count only HEALTHY/DEGRADED servers (i.e. those
+        // actually routing traffic), not ones already DRAINING or pending removal.
+        long activeServers = directory.all().stream()
+                .filter(n -> !pendingRemoval.contains(n.getId()))
+                .filter(n -> n.getState() == ServerState.HEALTHY
+                          || n.getState() == ServerState.DEGRADED)
+                .count();
+        if (util < 0.20 && activeServers > 6) {
             scaleDownTicks++;
             if (scaleDownTicks >= 5) { // 10 seconds sustained low load
                 scaleDownTicks = 0;
@@ -136,29 +153,37 @@ public class AutoScaler {
     }
 
     private void scaleDown() {
-        ServerNode leastUsed = null;
+        // Prefer draining the most expensive server that has the fewest sessions.
+        // This makes cost-optimized routing visibly reduce burn rate: as new sessions
+        // land on cheap servers, expensive ones go idle and get drained first.
+        ServerNode candidate = null;
         for (ServerNode node : directory.all()) {
             if (pendingRemoval.contains(node.getId())) continue;
-            
-            if (node.getState() == ServerState.HEALTHY) {
-                if (leastUsed == null) {
-                    leastUsed = node;
-                } else if (node.getMetrics() != null && leastUsed.getMetrics() != null) {
-                    if (node.getMetrics().getSessions() < leastUsed.getMetrics().getSessions()) {
-                        leastUsed = node;
-                    }
+            if (node.getState() != ServerState.HEALTHY) continue;
+
+            if (candidate == null) {
+                candidate = node;
+            } else {
+                int nodeSess   = node.getMetrics()     != null ? node.getMetrics().getSessions()      : 0;
+                int candSess   = candidate.getMetrics() != null ? candidate.getMetrics().getSessions() : 0;
+                double nodeCost = node.getCostPerHour();
+                double candCost = candidate.getCostPerHour();
+
+                // Pick by: highest cost first, fewest sessions as tiebreaker.
+                if (nodeCost > candCost || (nodeCost == candCost && nodeSess < candSess)) {
+                    candidate = node;
                 }
             }
         }
-        
-        if (leastUsed != null) {
-            pendingRemoval.add(leastUsed.getId());
-            leastUsed.setState(ServerState.DRAINING);
-            leastUsed.setWeight(0);
-            leastUsed.refreshEligibility();
-            events.info("SERVER_DRAINING", "Scale down triggered, draining " + leastUsed.getId(), leastUsed.getId());
+
+        if (candidate != null) {
+            pendingRemoval.add(candidate.getId());
+            candidate.setState(ServerState.DRAINING);
+            candidate.setWeight(0);
+            candidate.refreshEligibility();
+            events.info("SERVER_DRAINING", "Scale down triggered, draining " + candidate.getId(), candidate.getId());
             ws.publish("SERVER_STATE_CHANGED", Map.of(
-                    "serverId", leastUsed.getId(),
+                    "serverId", candidate.getId(),
                     "oldState", "HEALTHY",
                     "newState", "DRAINING"));
         }

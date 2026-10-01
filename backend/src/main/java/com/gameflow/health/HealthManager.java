@@ -138,6 +138,19 @@ public class HealthManager {
 
     private void onFailure(ServerNode node, CircuitBreaker breaker, boolean rmiException) {
         String id = node.getId();
+
+        // BUG-4 fix: a draining server should not be transitioned to DEGRADED/UNHEALTHY
+        // by health check failures. It is intentionally winding down; overwriting the
+        // DRAINING state would trigger spurious session migration and break the
+        // AutoScaler's drain completion check.
+        if (node.getState() == ServerState.DRAINING) {
+            // Still record circuit-breaker failures so the breaker opens if the server
+            // genuinely dies during drain, but don't touch node state.
+            breaker.recordFailure();
+            node.setCircuitState(breaker.getState());
+            return;
+        }
+
         breaker.recordFailure();
         node.setCircuitState(breaker.getState());
         recoveryStreak.put(id, 0);

@@ -51,7 +51,10 @@ public class ServerNode {
 
     /** Recomputes routing eligibility from health + circuit state. */
     public void refreshEligibility() {
-        boolean healthyEnough = state == ServerState.HEALTHY || state == ServerState.DEGRADED;
+        // DRAINING is intentionally excluded: the server is being wound down
+        // and must not accept new sessions even though it is technically healthy.
+        boolean healthyEnough = (state == ServerState.HEALTHY || state == ServerState.DEGRADED)
+                && state != ServerState.DRAINING;
         this.eligible = healthyEnough && circuitState == CircuitState.CLOSED;
     }
 }

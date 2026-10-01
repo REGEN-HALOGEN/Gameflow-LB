@@ -93,6 +93,7 @@ public class RoutingEngine {
             ServerMetrics metrics = node.getMetrics();
             double playerLatency = playerLatencyMs(request.getPlayerRegion(), node.getId());
             CandidateScore candidate = strategy.evaluate(request, node, playerLatency, i, nodes.size());
+
             if (excluded.contains(node.getId())) {
                 candidate.setEligible(false);
                 candidate.setPenaltyReason("SERVER OFFLINE");
@@ -100,14 +101,26 @@ public class RoutingEngine {
                         + WeightedGamingStrategy.INELIGIBLE_PENALTY));
                 candidate.getScoreBreakdown().merge("penalty",
                         WeightedGamingStrategy.INELIGIBLE_PENALTY, Double::sum);
-            } else if (!isHardwareCompatible(reqHardware, node.getHardwareTier())) {
-                candidate.setEligible(false);
-                candidate.setPenaltyReason("HARDWARE MISMATCH");
-                candidate.setScore(round1(candidate.getScore() + WeightedGamingStrategy.INELIGIBLE_PENALTY));
-                candidate.getScoreBreakdown().merge("penalty", WeightedGamingStrategy.INELIGIBLE_PENALTY, Double::sum);
             }
-            // Eligibility for ineligible candidates is already set by the strategy;
-            // keep the metrics snapshot on the candidate honest.
+
+            // Hardware check is independent of the excluded check: a server can be
+            // both force-excluded AND hardware-mismatched. Apply the penalty only
+            // once (don't double-add if already penalised), but always update the
+            // reason so the UI shows the most-specific explanation.
+            if (!isHardwareCompatible(reqHardware, node.getHardwareTier())) {
+                if (candidate.isEligible()) {
+                    // Not yet penalised — apply full penalty.
+                    candidate.setScore(round1(candidate.getScore() + WeightedGamingStrategy.INELIGIBLE_PENALTY));
+                    candidate.getScoreBreakdown().merge("penalty", WeightedGamingStrategy.INELIGIBLE_PENALTY, Double::sum);
+                }
+                candidate.setEligible(false);
+                // Only overwrite the reason if no more-specific reason already set.
+                if (candidate.getPenaltyReason() == null || candidate.getPenaltyReason().isEmpty()) {
+                    candidate.setPenaltyReason("HARDWARE MISMATCH");
+                }
+            }
+
+            // Keep the metrics snapshot on the candidate honest.
             candidate.setCpu(metrics.getCpu());
             candidate.setGpu(metrics.getGpu());
             candidate.setPacketLoss(metrics.getPacketLoss());
@@ -119,6 +132,28 @@ public class RoutingEngine {
                 .filter(CandidateScore::isEligible)
                 .min(Comparator.comparingDouble(CandidateScore::getScore))
                 .orElse(null);
+
+        // Hardware-tier fallback: if no hardware-compatible eligible server exists
+        // (e.g. all RTX_4090 servers are draining during a scale-down cycle), relax
+        // the hardware constraint and pick the best available healthy server rather
+        // than producing a hard NO_CANDIDATE. The session will run at lower fidelity
+        // but the player is not dropped.
+        boolean usedHardwareFallback = false;
+        if (best == null && reqHardware != null) {
+            // Hardware-mismatched candidates have eligible=false; iterate directly
+            // to find the one with the lowest score among those rejected only for
+            // hardware reasons (not health/circuit/metric failures).
+            for (CandidateScore c : candidates) {
+                if ("HARDWARE MISMATCH".equals(c.getPenaltyReason())) {
+                    if (best == null || c.getScore() < best.getScore()) {
+                        best = c;
+                    }
+                }
+            }
+            if (best != null) {
+                usedHardwareFallback = true;
+            }
+        }
 
         RoutingDecision decision = new RoutingDecision();
         decision.setId(String.format("RD-%05d", decisionSeq.incrementAndGet()));
@@ -139,10 +174,18 @@ public class RoutingEngine {
                             + " (" + request.getGame() + ", " + request.getPlayerRegion() + ")", null);
         } else {
             decision.setSelectedServerId(best.getServerId());
-            decision.setReason("Lowest eligible composite gaming score (" + best.getScore() + ").");
-            events.info("ROUTING_DECISION",
-                    request.getPlayerId() + " → " + best.getServerId()
-                            + " [" + activeStrategy + "]", best.getServerId());
+            if (usedHardwareFallback) {
+                decision.setReason("Hardware-tier fallback: no " + reqHardware
+                        + " server available, routed to best healthy server (" + best.getServerId() + ").");
+                events.warn("ROUTING_HARDWARE_FALLBACK",
+                        request.getPlayerId() + " → " + best.getServerId()
+                                + " [hw-fallback, needed " + reqHardware + "]", best.getServerId());
+            } else {
+                decision.setReason("Lowest eligible composite gaming score (" + best.getScore() + ").");
+                events.info("ROUTING_DECISION",
+                        request.getPlayerId() + " → " + best.getServerId()
+                                + " [" + activeStrategy + "]", best.getServerId());
+            }
         }
 
         strategy.afterDecision();

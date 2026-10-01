@@ -22,7 +22,9 @@ import java.util.Map;
 @Component
 public class WeightedGamingStrategy implements RoutingStrategy {
 
-    static final double INELIGIBLE_PENALTY = 25.0;
+    // Must be strictly greater than the maximum possible legitimate score (100.0),
+    // so ineligible candidates always visually rank below any eligible server in the UI.
+    static final double INELIGIBLE_PENALTY = 200.0;
 
     @Override
     public com.gameflow.model.RoutingStrategy getType() {
