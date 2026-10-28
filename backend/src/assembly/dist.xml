@@ -1,0 +1,34 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0
+          http://maven.apache.org/xsd/assembly-2.2.0.xsd">
+    <id>dist</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+
+    <!-- The fat JAR -->
+    <files>
+        <file>
+            <source>${project.build.directory}/${project.build.finalName}.jar</source>
+            <outputDirectory>/</outputDirectory>
+            <destName>gameflow-lb.jar</destName>
+        </file>
+    </files>
+
+    <!-- Launcher scripts + README -->
+    <fileSets>
+        <fileSet>
+            <directory>${project.basedir}/src/dist</directory>
+            <outputDirectory>/</outputDirectory>
+            <includes>
+                <include>run.bat</include>
+                <include>run.sh</include>
+                <include>README.txt</include>
+            </includes>
+            <lineEnding>keep</lineEnding>
+            <fileMode>0755</fileMode>
+        </fileSet>
+    </fileSets>
+</assembly>

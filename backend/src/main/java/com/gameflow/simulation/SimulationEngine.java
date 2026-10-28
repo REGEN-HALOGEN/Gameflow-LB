@@ -165,6 +165,9 @@ public class SimulationEngine {
             var node = directory.get(id);
             if (node != null) {
                 previousStates.put(id, node.getState());
+            }
+        }
+
         // Remove ONLY dynamically auto-scaled nodes from registry on reset.
         // Dynamic nodes are identified by their 'GS-MUM-A' prefix (set in AutoScaler.scaleUp).
         // All baseline nodes (GS-MUM-01..05, GS-BLR-01/02, GS-SIN-01/02/03) survive reset.

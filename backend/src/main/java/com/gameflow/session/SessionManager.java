@@ -2,7 +2,6 @@ package com.gameflow.session;
 
 import com.gameflow.events.EventBus;
 import com.gameflow.health.CircuitBreakerRegistry;
-import com.gameflow.model.EventSeverity;
 import com.gameflow.model.GameSession;
 import com.gameflow.model.PlayerRequest;
 import com.gameflow.model.RoutingDecision;
